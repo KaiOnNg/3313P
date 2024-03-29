@@ -4,81 +4,539 @@
 #include <iostream>
 #include <vector>
 #include <memory>
-#include "semaphore.h"
+#include "Semaphore.h"
 #include <algorithm>
 #include <random>
+#include "SharedObject.h"
+#include <string>
+#include <list>
+#include <algorithm>
+#include "socket.h"
+#include <cstdlib>
+#include <ctime>   
 
-// Define a simple GameRoom class inheriting from Thread
-class GameRoom : public Thread {
+using namespace Sync;
+// set a global value
+int count;
+
+// std::atomic<int> count(0);
+
+struct MyShared
+{
+    std::vector<int> dealerHand;
+    std::vector<int> playerHand;
+};
+
+class Dealer
+{
 private:
-    std::vector<int> deck;
+    std::vector<int> hand;
 
-     // Initializes and shuffles the deck
-    void initializeDeck() {
-        deck.clear(); // Ensure the deck starts empty
+    // Additional functionality for dealer actions
+public:
+    Dealer() {}
 
-        // Add four of each card value, excluding face cards which are all valued at 10
-        for (int i = 0; i < 4; ++i) { // Four suits
-            for (int j = 2; j <= 10; ++j) { // Cards 2-10
-                deck.push_back(j);
-            }
 
-            // Face cards and Aces
-            deck.insert(deck.end(), {10, 10, 10, 10, 11}); // J, Q, K, A (Aces are initially 11)
+    // send card
+    void deal(Shared<MyShared> shared)
+    {
+        this->hand = shared->dealerHand;
+    }
+
+    // used for calculayte the hand card
+    int calculateHandTotal() {
+    int total = 0;
+    for (int card : this->hand) {
+        total += card;
+    }
+    return total;
+}
+
+};
+
+class Player
+{
+private:
+    std::vector<int> playerHand;
+    std::vector<int> dealerHand;
+    Socket socket;
+    bool hitFlag = false;
+    bool explode = false;
+    bool isContinue = true;
+    int roomId;
+    Semaphore write = Semaphore("write"+roomId); 
+    Semaphore read = Semaphore("read"+roomId);
+
+    // Additional functionality for dealer actions
+public:
+    Player(Socket socket, int roomId) : socket(socket), roomId(roomId)
+    {
+        this->roomId = roomId;
+        this->socket = socket;
+        this->write = Semaphore("write"+roomId);
+        this->read = Semaphore("read"+roomId);
+    }
+
+    bool getHitFlag() {
+        return hitFlag;
+    }
+
+    bool getExplode() {
+        return explode;
+    }
+
+    void setExplode(bool explode) {
+        this->explode = explode;
+    }
+
+    void askHit()
+    {
+        ByteArray data("Do you want to hit or stand");
+        // message type = 1 hit
+        socket.Write(data);
+
+        int receivedData = socket.Read(data);
+        std::string received(data.v.begin(), data.v.end());
+
+        if (received == "hit")
+        {
+            hitFlag = true;
+        }
+        else if (received == "stand")
+        {
+            hitFlag = false;
+        }
+    }
+
+    bool getContinue(){
+
+        return this->isContinue;
+    }
+
+    void readHand(Shared<MyShared> sharedmemory)
+    {
+
+        read.Wait();
+        playerHand = sharedmemory->playerHand;
+        // have not define the read and wirte semaphore
+        write.Signal();
+    }
+
+    void send(Shared<MyShared> sharedMemory)
+    {
+
+        read.Wait();
+
+        dealerHand = sharedMemory->dealerHand;
+        playerHand = sharedMemory->playerHand;
+
+        read.Signal();
+
+        // avoid dead lock
+        std::string sendData = "Player: ";
+        for (int card : playerHand) {
+            sendData += std::to_string(card) + " ";
+        }
+        sendData += "Dealer: ";
+        for (int card : dealerHand) {
+            sendData += std::to_string(card) + " ";
         }
 
-        // Shuffle the deck
-        auto rng = std::default_random_engine(std::chrono::system_clock::now().time_since_epoch().count());
-        std::shuffle(deck.begin(), deck.end(), rng);
+        
+        ByteArray data(sendData);
+        socket.Write(data);
     }
 
-public:
-    GameRoom() {
-        initializeDeck();
+    void askContinue()
+    {
+        ByteArray data("Do you want to continue playing? (yes or no)");
+        // message type = 1 hit
+        socket.Write(data);
+
+        int receivedData = socket.Read(data);
+        std::string received(data.v.begin(), data.v.end());
+
+        if (received == "yes")
+        {
+            isContinue = true;
+        }
+        else if (received == "no")
+        {
+            isContinue = false;
+        }
     }
-    virtual long ThreadMain() override{
+
+    void sendWinner(std::string string){
+        
+        
+        socket.Write(string);
+
+    }
+
+
+
+    void closeConneton()
+    {
+
+        socket.Close();
+    }
+
+    // calculate the all hand card
+    int calculateHandTotal() {
+    int total = 0;
+    for (int card : this->playerHand) {
+        total += card;
+    }
+    return total;
+}
+
+
+};
+
+class Spectator
+{
+private:
+    std::vector<int> playerHand;
+    std::vector<int> dealerHand;
+    Socket socket;
+    int roomId;
+    Semaphore read = Semaphore("read"+roomId);
+    // Additional functionality for dealer actions
+public:
+    Spectator(Socket socket): socket(socket){
+        this->socket = socket;
+    } 
+
+    Socket getSocket(){
+        return this->socket;
+    }
+
+    int getRoomId(){
+        return this->roomId;
+    }
+
+    void send(Shared<MyShared> sharedMemory)
+    {
+
+        read.Wait();
+
+        dealerHand = sharedMemory->dealerHand;
+        playerHand = sharedMemory->playerHand;
+
+        read.Signal();
+        // avoid dead lock
+        std::string sendData = "Player: ";
+        for (int card : playerHand) {
+            sendData += std::to_string(card) + " ";
+        }
+        sendData += "Dealer: ";
+        for (int card : dealerHand) {
+            sendData += std::to_string(card) + " ";
+        }
+
+        
+        ByteArray data(sendData);
+        socket.Write(data);
+    }
+
+    void setRoomId(int roomId){
+        this->roomId = roomId;
+        this->read = Semaphore("read"+roomId);
+    }
+
+    void askRoom()
+    {
+        // since when the room achieve 3, then it will assign the new comeer be the spectator
+        ByteArray data("which rooom do you want to join in 1 or 2 or 3");
+        socket.Write(data);
+    }
+
+    
+    void sendWinner(std::string string){    
+        socket.Write(string);
+    }
+
+
+};
+
+// Define a simple GameRoom class inheriting from Thread
+class GameRoom : public Thread
+{
+private:
+    // main field
+    int roomId;
+    Dealer* gameDealer = new Dealer();
+    Player* gamePlayer;
+    bool continueFlag;
+    std::vector<Spectator*> Spectatorlist;
+    // define index = 0 for dealer index = 1 for player
+    std::vector<std::vector<int>> deck;
+    Shared<MyShared> shared;
+
+    // create semaphore for read and write
+
+    Semaphore write = Semaphore("write" + roomId, 1, true);
+    Semaphore read = Semaphore("read" + roomId, 0, true);
+    //
+
+public:
+    GameRoom(int roomId, Player *player, Shared<MyShared> shared) : gamePlayer(player), roomId(roomId), shared(shared)
+    {
+        this->gamePlayer = player;
+        initializeDeck();
+        this->roomId = roomId;
+        this->shared = shared;
+    }
+
+    // Initializes and shuffles the deck
+    void initializeDeck()
+    {
+        deck.clear();
+        for (int i = 0; i < 4; ++i)
+        { // For each suit
+            for (int j = 2; j <= 11; ++j)
+            { // Add cards 2-10 and Ace as 11
+                deck[i].push_back(j);
+            }
+            deck[i].push_back(10); // Queen
+            deck[i].push_back(10); // King
+            deck[i].push_back(10); // Jack
+        }
+        std::shuffle(deck.begin(), deck.end(), std::default_random_engine(std::chrono::system_clock::now().time_since_epoch().count()));
+    }
+
+    virtual long ThreadMain() override
+    {
         // Game logic goes here. For now, just a placeholder.
-        std::cout << "Starting a new game room...\n";
         // Simulate game room activity
-        std::this_thread::sleep_for(std::chrono::seconds(10));
-        std::cout << "Game room ending...\n";
+
+        //used for a random generate a int num
+        srand(time(NULL));
+
+        try
+        {
+            // initiali case
+            continueFlag = true;
+            while(continueFlag == true)
+            {
+                std::cout << "Starting a new game...\n";
+                // initialize two card to the shared memory
+                shared->playerHand.push_back(deck[rand() % 4][rand() % 13]);
+                shared->playerHand.push_back(deck[rand() % 4][rand() % 13]);
+                shared->dealerHand.push_back(deck[rand() % 4][rand() % 13]);
+                shared->dealerHand.push_back(deck[rand() % 4][rand() % 13]);
+                // deck[0].push(deck[random]);
+                // deck[0].push(deck[random]);
+
+                for (auto* spectator : Spectatorlist) {
+                    spectator->send(shared);
+                }
+
+
+                gamePlayer->readHand(shared);
+
+                // player hit the card
+                while (true)
+                {
+
+                    gamePlayer->askHit();
+                    if (gamePlayer->getHitFlag())
+                    {
+                        shared->playerHand.push_back(deck[rand() % 4][rand() % 13]);
+                    }
+                    else if (gamePlayer->getHitFlag() == false)
+                    {
+                        break;
+                    };
+
+                    if (gamePlayer->calculateHandTotal() > 21)
+                    {
+                        gamePlayer->setExplode(true);
+                        break;
+                    };
+
+                    for (auto* spectator : Spectatorlist) {
+                        spectator->send(shared);
+                    }
+                }
+
+                // dealer begin hit the card
+
+                while ((!gamePlayer->getExplode() && gameDealer->calculateHandTotal() < 17) || (gameDealer->calculateHandTotal() < 21))
+                {
+                    // if dealer satisfy the condition then add card to shared memory
+                   shared->dealerHand.push_back(deck[rand() % 4][rand() % 13]);
+                   gameDealer->deal(shared);
+                    // let spector get information
+                    for (auto* spectator : Spectatorlist) {
+                        spectator->send(shared);
+                    }
+                        // since the player has finished his round and act as a spectator
+                        gamePlayer->send(shared);
+                }
+
+                // if player exploded
+                if (gamePlayer->getExplode())
+                {
+                    // dealer wins, notify player and all spectators
+                    gamePlayer->sendWinner("Dealer wins!!");
+                    
+                    for (auto* spectator : Spectatorlist) {
+                        spectator->sendWinner("Dealer wins!!");
+                    }
+
+                }
+
+                // if dealer exploded
+                if (gameDealer->calculateHandTotal() > 21)
+                {
+                    // Player wins, notify player and all spectators
+                    gamePlayer->sendWinner("Player wins!!");
+                       for (auto* spectator : Spectatorlist) {
+                        spectator->sendWinner("Player wins!!");
+                    }
+                }
+
+                // compare score
+                if ( gameDealer->calculateHandTotal() > gamePlayer->calculateHandTotal() )
+                {
+                       // dealer wins, notify player and all spectators
+                    gamePlayer->sendWinner("Dealer wins!!");
+                    
+                    for (auto* spectator : Spectatorlist) {
+                        spectator->sendWinner("Dealer wins!!");
+                    }
+                }
+                else
+                {
+                     // Player wins, notify player and all spectators
+                    gamePlayer->sendWinner("Player wins!!");
+                       for (auto* spectator : Spectatorlist) {
+                        spectator->sendWinner("Player wins!!");
+                    }
+                }
+
+                gamePlayer->askContinue();
+                if (gamePlayer->getContinue())
+                {
+                    // nothing change
+                }
+                else
+                {
+                    // let the connetion close
+                    gamePlayer->closeConneton();
+                    // then set the first spectator as the player
+                    // assign the member to here
+                    gamePlayer = new Player( Spectatorlist[0]->getSocket() , Spectatorlist[0]->getRoomId() )  ;
+                    // reset the first place of vector list
+                    // Removing the first element
+                    Spectatorlist.erase(Spectatorlist.begin());
+                }
+
+                if (gamePlayer == nullptr && Spectatorlist.size() == 0)
+                {
+
+                    // terminate the thread if there is no player and the list is empty
+                    // std::cout << "Thread has finished execution.\n";
+                    // return 0;  then terminat
+                    continueFlag = false;
+                }
+                else
+                {
+                    continueFlag == true;
+                }
+
+            }
+
+            std::this_thread::sleep_for(std::chrono::seconds(10));
+            std::cout << "Game room ending...\n";
+            return 0;
+        } catch (std::string &e) {
+
+                // system output
+                std::cout << "cannot create server" << std::endl;
+        }
+        
+
+        
+    };
+
+    // semaphore read write
+
+    // shared memory
+
+    //
+
+    int main()
+    {
+        SocketServer server(12345); // Listen on port 12345
+        std::vector<GameRoom *> gameRooms;
+
+        std::cout << "Server started. Listening for connections...\n";
+
+        // Accept connections and create game rooms
+        try
+        {
+            while (true)
+            {
+                Socket newConnection = server.Accept();
+                count++;
+                std::cout << "Accepted new connection. Starting a game room...\n";
+                if (count < 3)
+                {
+
+                    Shared<MyShared> shared("sharedMemory" + count, false);
+                    GameRoom *game = new GameRoom(count, new Player(newConnection, count), shared);
+                    // Start a new game room for each connection
+                    gameRooms.push_back(game);
+                }
+                else
+                {
+
+                    // send message to client tell him the room is room full
+                    // which room you want to join
+
+                    // wait response
+                    //  if (out of range ---- retry) inside the range put to the spectator list
+
+                    // send current situation of current rooom
+
+                    Spectator* newSpec = new Spectator(newConnection);
+                    newSpec->askRoom();
+                    ByteArray response;
+                    newConnection.Read(response);
+                    std::string receive(response.v.begin(), response.v.end());
+                    if(receive.length() == 0){
+                        break;
+                    }
+
+                    if (receive == "1")
+                    {
+                        newSpec->setRoomId(1);
+                        gameRooms[0]->Spectatorlist.push_back(newSpec);
+                    }
+                    else if (receive == "2")
+                    {
+                        newSpec->setRoomId(2);
+                        gameRooms[1]->Spectatorlist.push_back(newSpec);
+                    }
+                    else if (receive == "3")
+                    {
+                        // in room 3
+                        newSpec->setRoomId(3);
+                        gameRooms[2]->Spectatorlist.push_back(newSpec);
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+        }
+        catch (const std::string &e)
+        {
+            std::cerr << "Server exception: " << e << std::endl;
+        }
+
         return 0;
     }
 };
-
-class Player : {
-private: 
-    std::vector<int> playerHand;
-    
-public:
-};
-
-class Dealer : {
-private:
-    std::vector<int> dealerHand;
-};
-
-class Spectator : {
-}
-
-int main() {
-    Sync::SocketServer server(12345); // Listen on port 12345
-    std::vector<std::unique_ptr<GameRoom>> gameRooms;
-
-    std::cout << "Server started. Listening for connections...\n";
-
-    // Accept connections and create game rooms
-    try {
-        while (true) {
-            Sync::Socket newConnection = server.Accept();
-            std::cout << "Accepted new connection. Starting a game room...\n";
-
-            // Start a new game room for each connection
-            gameRooms.push_back(std::make_unique<GameRoom>());
-        }
-    } catch (const std::string &e) {
-        std::cerr << "Server exception: " << e << std::endl;
-    }
-
-    return 0;
-}
