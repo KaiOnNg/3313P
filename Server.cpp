@@ -145,21 +145,17 @@ public:
     void readHand(Shared<MyShared> sharedmemory)
     {
 
-        read.Wait();
+        write.Wait();
         // playerHand = sharedmemory->playerHand1;
+        std::cout << sharedmemory->test << std::endl;
+        ByteArray data(std::to_string(sharedmemory->test) + "\n");
+        socket.Write(data);
         // have not define the read and wirte semaphore
         write.Signal();
     }
 
     void send(Shared<MyShared> sharedMemory)
     {
-
-        read.Wait();
-
-        // dealerHand = sharedMemory->dealerHand1;
-        // playerHand = sharedMemory->playerHand1;
-
-        read.Signal();
 
         // avoid dead lock
         std::string sendData = "Player: ";
@@ -360,12 +356,15 @@ public:
         {
             Shared<MyShared> shared("sharedMemory");
 
+            write.Wait();
             shared->test = 3;
+            write.Signal();
             std::cout << "2" << std::endl;
             // used for a random generate a int num
             // srand(time(NULL));
+            write.Wait();
             std::cout << shared->test << std::endl;
-
+            write.Signal();
             try
             {
                 // initiali case
@@ -386,12 +385,16 @@ public:
                     // shared->dealerHand1.push_back(deck[rand() % 4][rand() % 13]);
                     // std::cout << "1" << std::endl;
 
+                    std::cout << "5" << std::endl;
                     for (auto *spectator : Spectatorlist)
                     {
                         spectator->send(shared);
                     }
+                    std::cout << "5" << std::endl;
 
                     gamePlayer->readHand(shared);
+
+                    std::cout << "5" << std::endl;
 
                     // player hit the card
                     while (true)
@@ -550,10 +553,10 @@ int main()
             count++;
             std::cout << "Accepted new connection. Starting a game room...\n";
 
-            if (count < 3)
+            if (count < 4)
             {
                 // Start a new game room for each connection
-                gameRooms.push_back(new GameRoom(count, new Player(newConnection, count, write, read), write, read));
+                gameRooms.push_back(new GameRoom(count, new Player(newConnection, count, Semaphore("write"), Semaphore("read")), Semaphore("write"), Semaphore("read")));
             }
             else
             {
@@ -565,8 +568,8 @@ int main()
                 //  if (out of range ---- retry) inside the range put to the spectator list
 
                 // send current situation of current rooom
-                Semaphore read = Semaphore("read" + count);
-                Spectator *newSpec = new Spectator(newConnection, read);
+                std::cout << "Spectator" << std::endl;
+                Spectator *newSpec = new Spectator(newConnection, Semaphore("read"));
                 newSpec->askRoom();
                 ByteArray response;
                 newConnection.Read(response);
@@ -578,20 +581,20 @@ int main()
                 read = Semaphore("read" + receive);
                 if (receive == "1")
                 {
-                    newSpec->setSemaphore(read);
+                    // newSpec->setSemaphore(read);
                     newSpec->setRoomId(1);
                     gameRooms[0]->addSpec(newSpec);
                 }
                 else if (receive == "2")
                 {
-                    newSpec->setSemaphore(read);
+                    // newSpec->setSemaphore(read);
                     newSpec->setRoomId(2);
                     gameRooms[1]->addSpec(newSpec);
                 }
                 else if (receive == "3")
                 {
                     // in room 3
-                    newSpec->setSemaphore(read);
+                    // newSpec->setSemaphore(read);
                     newSpec->setRoomId(3);
                     gameRooms[2]->addSpec(newSpec);
                 }
