@@ -65,7 +65,7 @@ public:
 class Player
 {
 private:
-    std::vector<int> playerHand = std::vector<int>(10);
+    int playerHand[10];
     std::vector<int> dealerHand = std::vector<int>(10);
     Socket socket;
     bool hitFlag = false;
@@ -102,9 +102,9 @@ public:
         this->explode = explode;
     }
 
-    std::vector<int> getHand()
+    int* getHand()
     {
-        return this->playerHand;
+        return playerHand;
     }
 
     void askHit()
@@ -134,16 +134,20 @@ public:
 
     void deal(int card)
     {
-        this->playerHand.push_back(card);
+        // this->playerHand.push(card);
     }
 
     void readHand(Shared<MyShared> sharedmemory)
     {
 
         write.Wait();
-        // playerHand = sharedmemory->playerHand1;
-        std::cout << sharedmemory->test << std::endl;
-        ByteArray data(std::to_string(sharedmemory->test) + "\n");
+        std::copy_n(sharedmemory->table[0].playerHand, sharedmemory->table[0].playerHandSize, playerHand);
+        std::cout << sharedmemory->table[0].playerHand[sharedmemory->table[0].dealerHandSize] << std::endl;
+        std::string hand = "";
+        for (int i = 0; i < sharedmemory->table[0].playerHandSize; i++){
+            hand += sharedmemory->table[0].playerHand[i] + " / ";
+        }
+        ByteArray data(hand + "\n");
         socket.Write(data);
         // have not define the read and wirte semaphore
         write.Signal();
@@ -345,37 +349,10 @@ public:
     {
         // Game logic goes here. For now, just a placeholder.
         // Simulate game room activity
-        std::cout << "2:::" << std::endl;
 
         try
         {
             Shared<MyShared> shared("sharedMemory");
-
-            // ways to get and use shared memory data
-
-            // std::cout << "dealerhand size before adding card: " << shared->table[0].dealerHandSize << std::endl;
-
-            // // Adding a card to the dealer's hand
-            // if (shared->table[0].dealerHandSize < 10)
-            // {                                                                     // Ensure there's space for another card
-            //     shared->table[0].dealerHand[shared->table[0].dealerHandSize] = 3; // Add a card (e.g., '3')
-            //     shared->table[0].dealerHandSize++;                                // Increment the count
-            //     std::cout << "Added card '3' to dealer's hand. New dealerhand size: " << shared->table[0].dealerHandSize << std::endl;
-            // }
-
-            // // Verify dealer's hand is not exceeding the maximum size after adding a card
-            // if (shared->table[0].dealerHandSize > 10)
-            // {
-            //     std::cerr << "Error: dealer's hand size exceeded the maximum allowed size." << std::endl;
-            //     // Handle the error accordingly
-            // }
-
-            // std::cout << "Dealer Hand after adding card: ";
-            // for (int i = 0; i < shared->table[0].dealerHandSize; ++i)
-            // {
-            //     std::cout << shared->table[0].dealerHand[i] << " ";
-            // }
-            // std::cout << std::endl;
 
             try
             {
@@ -386,7 +363,39 @@ public:
                     std::cout << "Starting a new game..." << std::endl;
                     // initialize two card to the shared memory
                     gamePlayer->deal(deck[0][5]);
-                    std::cout << "1" << std::endl;
+
+                    // ways to get and use shared memory data
+
+                    std::cout << "dealerhand size before adding card: " << shared->table[0].dealerHandSize << std::endl;
+
+                    // Adding a card to the dealer's hand
+                    if (shared->table[0].dealerHandSize < 10)
+                    {                                                                     // Ensure there's space for another card
+                        shared->table[0].dealerHand[shared->table[0].dealerHandSize] = 3; // Add a card (e.g., '3')
+                        shared->table[0].dealerHandSize++;                                // Increment the count
+                        std::cout << "Added card '3' to dealer's hand. New dealerhand size: " << shared->table[0].dealerHandSize << std::endl;
+                    }
+
+                    if (shared->table[0].dealerHandSize < 10)
+                    {                                                                     // Ensure there's space for another card
+                        shared->table[0].dealerHand[shared->table[0].dealerHandSize] = 3; // Add a card (e.g., '3')
+                        shared->table[0].dealerHandSize++;                                // Increment the count
+                        std::cout << "Added card '3' to dealer's hand. New dealerhand size: " << shared->table[0].dealerHandSize << std::endl;
+                    }
+
+                    // Verify dealer's hand is not exceeding the maximum size after adding a card
+                    if (shared->table[0].dealerHandSize > 10)
+                    {
+                        std::cerr << "Error: dealer's hand size exceeded the maximum allowed size." << std::endl;
+                        // Handle the error accordingly
+                    }
+
+                    std::cout << "Dealer Hand after adding card: ";
+                    for (int i = 0; i < shared->table[0].dealerHandSize; ++i)
+                    {
+                        std::cout << shared->table[0].dealerHand[i] << " ";
+                    }
+                    std::cout << std::endl;
 
                     // shared->playerHand1 = this->gamePlayer->getHand();
                     // std::cout << "1" << std::endl;
@@ -397,16 +406,12 @@ public:
                     // shared->dealerHand1.push_back(deck[rand() % 4][rand() % 13]);
                     // std::cout << "1" << std::endl;
 
-                    std::cout << "5" << std::endl;
                     for (auto *spectator : Spectatorlist)
                     {
                         spectator->send(shared);
                     }
-                    std::cout << "5" << std::endl;
 
                     gamePlayer->readHand(shared);
-
-                    std::cout << "5" << std::endl;
 
                     // player hit the card
                     while (true)
