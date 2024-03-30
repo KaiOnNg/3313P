@@ -29,19 +29,11 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    std::cout << "Connected to the server. Type your commands ('exit' to quit):" << std::endl;
+    std::cout << "Connected to the server." << std::endl;
 
     std::string input;
     char buffer[1024] = {0};
     while (true) {
-        std::cout << "> ";
-        std::getline(std::cin, input); // Get input from the user
-
-        if (input == "exit") break; // Exit loop if user types 'exit'
-
-        // Send input to the server
-        send(sockfd, input.c_str(), input.length(), 0);
-
         // Wait for response
         int n = read(sockfd, buffer, sizeof(buffer));
         if (n > 0) {
@@ -50,6 +42,12 @@ int main() {
             std::cout << "No response from server, or connection closed." << std::endl;
             break;
         }
+
+        std::cout << "> ";
+        std::getline(std::cin, input); // Get input from the user
+
+        // Send input to the server
+        send(sockfd, input.c_str(), input.length(), 0);
 
         memset(buffer, 0, sizeof(buffer)); // Clear buffer
     }
