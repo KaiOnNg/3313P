@@ -11,26 +11,25 @@
 #include <string>
 #include <list>
 #include <algorithm>
-#include "socket.h"
 #include <cstdlib>
 #include <ctime>   
 
 using namespace Sync;
 // set a global value
-int count;
+int count = 0;
 
 // std::atomic<int> count(0);
 
 struct MyShared
 {
-    std::vector<int> dealerHand;
-    std::vector<int> playerHand;
+    std::vector<int> dealerHand = std::vector<int>(10);
+    std::vector<int> playerHand = std::vector<int>(10);
 };
 
 class Dealer
 {
 private:
-    std::vector<int> hand;
+    std::vector<int> hand = std::vector<int>(10);
 
     // Additional functionality for dealer actions
 public:
@@ -57,24 +56,24 @@ public:
 class Player
 {
 private:
-    std::vector<int> playerHand;
-    std::vector<int> dealerHand;
+    std::vector<int> playerHand = std::vector<int>(10);
+    std::vector<int> dealerHand = std::vector<int>(10);
     Socket socket;
     bool hitFlag = false;
     bool explode = false;
     bool isContinue = true;
     int roomId;
-    Semaphore write = Semaphore("write"+roomId); 
-    Semaphore read = Semaphore("read"+roomId);
+    Semaphore write;
+    Semaphore read;
 
     // Additional functionality for dealer actions
 public:
-    Player(Socket socket, int roomId) : socket(socket), roomId(roomId)
+    Player(Socket socket, int roomId, Semaphore write, Semaphore read) : socket(socket), roomId(roomId), write(write), read(read)
     {
         this->roomId = roomId;
         this->socket = socket;
-        this->write = Semaphore("write"+roomId);
-        this->read = Semaphore("read"+roomId);
+        this->write = write;
+        this->read = read;
     }
 
     bool getHitFlag() {
@@ -196,15 +195,16 @@ public:
 class Spectator
 {
 private:
-    std::vector<int> playerHand;
-    std::vector<int> dealerHand;
+    std::vector<int> playerHand = std::vector<int>(10);
+    std::vector<int> dealerHand = std::vector<int>(10);
     Socket socket;
     int roomId;
-    Semaphore read = Semaphore("read"+roomId);
+    Semaphore read;
     // Additional functionality for dealer actions
 public:
-    Spectator(Socket socket): socket(socket){
+    Spectator(Socket socket, Semaphore read): socket(socket), read(read){
         this->socket = socket;
+        this->read = read;
     } 
 
     Socket getSocket(){
@@ -213,6 +213,10 @@ public:
 
     int getRoomId(){
         return this->roomId;
+    }
+
+    void setSemaphore(Semaphore read){
+        this->read = read;
     }
 
     void send(Shared<MyShared> sharedMemory)
@@ -275,29 +279,40 @@ private:
 
     // create semaphore for read and write
 
-    Semaphore write = Semaphore("write" + roomId, 1, true);
-    Semaphore read = Semaphore("read" + roomId, 0, true);
+    Semaphore write;
+    Semaphore read;
     //
 
 public:
-    GameRoom(int roomId, Player *player, Shared<MyShared> shared) : gamePlayer(player), roomId(roomId), shared(shared)
+    GameRoom(int roomId, Player *player, Shared<MyShared> shared, Semaphore write, Semaphore read) : gamePlayer(player), roomId(roomId), shared(shared), write(write), read(read)
     {
         this->gamePlayer = player;
         initializeDeck();
         this->roomId = roomId;
         this->shared = shared;
+        this->write = write;
+        this->read = read;
+    }
+
+    void addSpec(Spectator* newSpec){
+        Spectatorlist.push_back(newSpec);
     }
 
     // Initializes and shuffles the deck
     void initializeDeck()
     {
         deck.clear();
+        deck.resize(4);
+        for (int i = 0; i < 4; i++) {
+            deck[i].resize(13);
+        }
         for (int i = 0; i < 4; ++i)
         { // For each suit
             for (int j = 2; j <= 11; ++j)
             { // Add cards 2-10 and Ace as 11
                 deck[i].push_back(j);
             }
+
             deck[i].push_back(10); // Queen
             deck[i].push_back(10); // King
             deck[i].push_back(10); // Jack
@@ -305,7 +320,7 @@ public:
         std::shuffle(deck.begin(), deck.end(), std::default_random_engine(std::chrono::system_clock::now().time_since_epoch().count()));
     }
 
-    virtual long ThreadMain() override
+    virtual long ThreadMain(void) override
     {
         // Game logic goes here. For now, just a placeholder.
         // Simulate game room activity
@@ -321,12 +336,15 @@ public:
             {
                 std::cout << "Starting a new game...\n";
                 // initialize two card to the shared memory
+                std::cout << "1" << std::endl;
                 shared->playerHand.push_back(deck[rand() % 4][rand() % 13]);
+                std::cout << "1" << std::endl;
                 shared->playerHand.push_back(deck[rand() % 4][rand() % 13]);
+                std::cout << "1" << std::endl;
                 shared->dealerHand.push_back(deck[rand() % 4][rand() % 13]);
+                std::cout << "1" << std::endl;
                 shared->dealerHand.push_back(deck[rand() % 4][rand() % 13]);
-                // deck[0].push(deck[random]);
-                // deck[0].push(deck[random]);
+                std::cout << "1" << std::endl;
 
                 for (auto* spectator : Spectatorlist) {
                     spectator->send(shared);
@@ -427,7 +445,7 @@ public:
                     gamePlayer->closeConneton();
                     // then set the first spectator as the player
                     // assign the member to here
-                    gamePlayer = new Player( Spectatorlist[0]->getSocket() , Spectatorlist[0]->getRoomId() )  ;
+                    gamePlayer = new Player( Spectatorlist[0]->getSocket() , Spectatorlist[0]->getRoomId() , this->write, this->read)  ;
                     // reset the first place of vector list
                     // Removing the first element
                     Spectatorlist.erase(Spectatorlist.begin());
@@ -461,13 +479,9 @@ public:
         
     };
 
-    // semaphore read write
+};
 
-    // shared memory
-
-    //
-
-    int main()
+int main()
     {
         SocketServer server(12345); // Listen on port 12345
         std::vector<GameRoom *> gameRooms;
@@ -484,9 +498,10 @@ public:
                 std::cout << "Accepted new connection. Starting a game room...\n";
                 if (count < 3)
                 {
-
-                    Shared<MyShared> shared("sharedMemory" + count, false);
-                    GameRoom *game = new GameRoom(count, new Player(newConnection, count), shared);
+                    Shared<MyShared> shared("sharedMemory" + count, true);
+                    Semaphore write = Semaphore("write"+count, 1, true);
+                    Semaphore read = Semaphore("read"+count, 0, true);
+                    GameRoom *game = new GameRoom(count, new Player(newConnection, count, write, read), shared, write, read);
                     // Start a new game room for each connection
                     gameRooms.push_back(game);
                 }
@@ -500,8 +515,8 @@ public:
                     //  if (out of range ---- retry) inside the range put to the spectator list
 
                     // send current situation of current rooom
-
-                    Spectator* newSpec = new Spectator(newConnection);
+                    Semaphore read = Semaphore("read"+count);
+                    Spectator* newSpec = new Spectator(newConnection, read);
                     newSpec->askRoom();
                     ByteArray response;
                     newConnection.Read(response);
@@ -509,22 +524,25 @@ public:
                     if(receive.length() == 0){
                         break;
                     }
-
+                    read = Semaphore("read"+receive);
                     if (receive == "1")
-                    {
+                    {   
+                        newSpec->setSemaphore(read);
                         newSpec->setRoomId(1);
-                        gameRooms[0]->Spectatorlist.push_back(newSpec);
+                        gameRooms[0]->addSpec(newSpec);
                     }
                     else if (receive == "2")
                     {
+                        newSpec->setSemaphore(read);
                         newSpec->setRoomId(2);
-                        gameRooms[1]->Spectatorlist.push_back(newSpec);
+                        gameRooms[1]->addSpec(newSpec);
                     }
                     else if (receive == "3")
                     {
                         // in room 3
+                        newSpec->setSemaphore(read);
                         newSpec->setRoomId(3);
-                        gameRooms[2]->Spectatorlist.push_back(newSpec);
+                        gameRooms[2]->addSpec(newSpec);
                     }
                     else {
                         break;
@@ -535,8 +553,8 @@ public:
         catch (const std::string &e)
         {
             std::cerr << "Server exception: " << e << std::endl;
+            server.Shutdown();
         }
 
         return 0;
     }
-};
