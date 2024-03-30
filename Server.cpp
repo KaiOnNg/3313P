@@ -360,6 +360,7 @@ public:
                 continueFlag = true;
                 while (continueFlag == true)
                 {
+
                     std::cout << "Starting a new game..." << std::endl;
                     // initialize two card to the shared memory
                     gamePlayer->deal(deck[0][5]);
