@@ -351,29 +351,31 @@ public:
         {
             Shared<MyShared> shared("sharedMemory");
 
-            std::cout << "dealerhand size before adding card: " << shared->table[0].dealerHandSize << std::endl;
+            // ways to get and use shared memory data
 
-            // Adding a card to the dealer's hand
-            if (shared->table[0].dealerHandSize < 10)
-            {                                                                     // Ensure there's space for another card
-                shared->table[0].dealerHand[shared->table[0].dealerHandSize] = 3; // Add a card (e.g., '3')
-                shared->table[0].dealerHandSize++;                                // Increment the count
-                std::cout << "Added card '3' to dealer's hand. New dealerhand size: " << shared->table[0].dealerHandSize << std::endl;
-            }
+            // std::cout << "dealerhand size before adding card: " << shared->table[0].dealerHandSize << std::endl;
 
-            // Verify dealer's hand is not exceeding the maximum size after adding a card
-            if (shared->table[0].dealerHandSize > 10)
-            {
-                std::cerr << "Error: dealer's hand size exceeded the maximum allowed size." << std::endl;
-                // Handle the error accordingly
-            }
+            // // Adding a card to the dealer's hand
+            // if (shared->table[0].dealerHandSize < 10)
+            // {                                                                     // Ensure there's space for another card
+            //     shared->table[0].dealerHand[shared->table[0].dealerHandSize] = 3; // Add a card (e.g., '3')
+            //     shared->table[0].dealerHandSize++;                                // Increment the count
+            //     std::cout << "Added card '3' to dealer's hand. New dealerhand size: " << shared->table[0].dealerHandSize << std::endl;
+            // }
 
-            std::cout << "Dealer Hand after adding card: ";
+            // // Verify dealer's hand is not exceeding the maximum size after adding a card
+            // if (shared->table[0].dealerHandSize > 10)
+            // {
+            //     std::cerr << "Error: dealer's hand size exceeded the maximum allowed size." << std::endl;
+            //     // Handle the error accordingly
+            // }
+
+            // std::cout << "Dealer Hand after adding card: ";
             // for (int i = 0; i < shared->table[0].dealerHandSize; ++i)
             // {
             //     std::cout << shared->table[0].dealerHand[i] << " ";
             // }
-            std::cout << shared->table[0].dealerHand << std::endl;
+            // std::cout << std::endl;
 
             try
             {
