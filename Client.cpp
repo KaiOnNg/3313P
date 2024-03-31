@@ -48,9 +48,9 @@ int main()
             {
                 break;
             }
-            std::cout << "Server: " << receivedMsg << std::endl;
+            std::cout << receivedMsg << std::endl;
 
-            if (receivedMsg == "Do you want to hit or stand" || receivedMsg == "Do you want to continue playing? (yes or no)")
+            if (receivedMsg == "\nDo you want to hit or stand" || receivedMsg == "Do you want to continue playing? (yes or no)")
             {
                 std::cout << "> ";
                 std::getline(std::cin, input); // Get input from the user
