@@ -112,8 +112,9 @@ public:
         ByteArray data("Do you want to hit or stand");
         socket.Write(data);
 
-        int receivedData = socket.Read(data);
-        std::string received(data.v.begin(), data.v.end());
+        ByteArray receivedData;
+        int receivedData = socket.Read(receivedData);
+        std::string received(receivedData.v.begin(), receivedData.v.end());
 
         if (received == "hit")
         {
@@ -400,7 +401,7 @@ public:
                     // }
                     // std::cout << std::endl;
 
-                                     if (Spectatorlist.size() != 0)
+                    if (Spectatorlist.size() != 0)
                     {
                         for (auto *spectator : Spectatorlist)
                         {
