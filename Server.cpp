@@ -106,23 +106,32 @@ public:
     {
 
         // Wait for response
-
-        ByteArray data("Do you want to hit or stand");
-        socket.Write(data);
-
-        // Wait for response
-
-        ByteArray receivedData;
-        socket.Read(receivedData);
-        std::string received(receivedData.v.begin(), receivedData.v.end());
-
-        if (received == "hit")
+        while (true)
         {
-            hitFlag = true;
-        }
-        else if (received == "stand")
-        {
-            hitFlag = false;
+            ByteArray data("\nDo you want to hit or stand");
+            socket.Write(data);
+
+            // Wait for response
+
+            ByteArray receivedData;
+            socket.Read(receivedData);
+            std::string received(receivedData.v.begin(), receivedData.v.end());
+
+            if (received == "hit")
+            {
+                hitFlag = true;
+                break;
+            }
+            else if (received == "stand")
+            {
+                hitFlag = false;
+                break;
+            }
+            else
+            {
+                ByteArray error("Invalid input, please try again.");
+                socket.Write(error);
+            }
         }
     }
 
@@ -386,11 +395,6 @@ public:
 
                     std::cout << "Starting a new game..." << std::endl;
                     // initialize two card to the shared memory
-                    // gamePlayer->deal(deck[0][5]);
-
-                    // ways to get and use shared memory data
-
-                    // // Adding a card to the dealer's hand
 
                     for (int i = 0; i < 2; ++i)
                     {
