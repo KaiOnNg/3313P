@@ -45,9 +45,9 @@ public:
     ~Dealer() {}
 
     // send card
-    void deal(Shared<MyShared> shared)
+    void deal(int (&dealerHand)[10])
     {
-        // this->hand = shared->dealerHand1;
+        std::copy(std::begin(dealerHand), std::end(dealerHand), this->hand.begin());
     }
 
     // used for calculayte the hand card
@@ -102,11 +102,6 @@ public:
         this->explode = explode;
     }
 
-    // int *getHand()
-    // {
-    //     return playerHand;
-    // }
-
     void askHit()
     {
 
@@ -137,9 +132,8 @@ public:
         return this->isContinue;
     }
 
-    void deal(int card)
+    void deal(int card, Shared<MyShared> shared)
     {
-        // this->playerHand.push(card);
     }
 
     void readHand(Shared<MyShared> sharedmemory)
@@ -168,6 +162,27 @@ public:
         }
 
         ByteArray data(handStr + "\n");
+        socket.Write(data);
+        // have not define the read and wirte semaphore
+        write.Signal();
+    }
+
+    void send(Shared<MyShared> sharedMemory)
+    {
+
+        // avoid dead lock
+        std::string sendData = "Player: ";
+        for (int card : playerHand)
+        {
+            sendData += std::to_string(card) + " ";
+        }
+        sendData += "Dealer: ";
+        for (int card : dealerHand)
+        {
+            sendData += std::to_string(card) + " ";
+        }
+
+        ByteArray data(sendData);
         socket.Write(data);
     }
 
@@ -383,6 +398,10 @@ public:
                         dealCard(deck, shared->table[roomId].playerHand, shared->table[roomId].playerHandSize);
                     }
 
+                    write.Wait();
+                    gameDealer->deal(shared->table[0].dealerHand);
+                    write.Signal();
+
                     if (Spectatorlist.size() != 0)
                     {
                         for (auto *spectator : Spectatorlist)
@@ -398,6 +417,7 @@ public:
                     {
                         Shared<MyShared> shared("sharedMemory");
                         gamePlayer->askHit();
+
                         if (gamePlayer->getHitFlag())
                         {
                             std::cout << "hit" << std::endl;
@@ -430,15 +450,18 @@ public:
 
                     // dealer begin hit the card
 
-                    while ((!gamePlayer->getExplode() && gameDealer->calculateHandTotal() < 17) || (gameDealer->calculateHandTotal() < 21))
+                    while ((!gamePlayer->getExplode() && gameDealer->calculateHandTotal() < 17))
                     {
                         // if dealer satisfy the condition then add card to shared memory
                         // shared->dealerHand1.push_back(deck[rand() % 4][rand() % 13]);
-                        if (gameDealer->calculateHandTotal() < 20)
-                        {
-                            break;
-                        }
-                        gameDealer->deal(shared);
+                        Shared<MyShared> shared("sharedMemory");
+                        write.Wait();
+                        shared->table[0].dealerHand[shared->table[0].dealerHandSize] = 3; // Add a card (e.g., '3')
+                        shared->table[0].dealerHandSize++;                                // Increment the count
+                        std::cout << "Added card '3' to dealer's hand. New dealerhand size: " << shared->table[0].dealerHandSize << std::endl;
+                        gameDealer->deal(shared->table[0].dealerHand);
+                        write.Signal();
+
                         // let spector get information
                         if (Spectatorlist.size() != 0)
                         {
