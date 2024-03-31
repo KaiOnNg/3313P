@@ -117,7 +117,6 @@ public:
 
         if (received == "hit")
         {
-            std::cout << "hit" << std::endl;
             hitFlag = true;
         }
         else if (received == "stand")
@@ -416,11 +415,17 @@ public:
                     // player hit the card
                     while (true)
                     {
-
+                        Shared<MyShared> shared("sharedMemory");
                         gamePlayer->askHit();
                         if (gamePlayer->getHitFlag())
                         {
-                            // shared->playerHand1.push_back(deck[rand() % 4][rand() % 13]);
+                            std::cout << "hit" << std::endl;
+                            write.Wait();
+                            shared->table[0].playerHand[shared->table[0].playerHandSize] = 3; // Add a card (e.g., '3')
+                            shared->table[0].playerHandSize++;                                // Increment the count
+                            std::cout << "Added card '3' to player's hand. New playerhand size: " << shared->table[0].playerHandSize << std::endl;
+                            write.Signal();
+                            gamePlayer->readHand(shared);
                         }
                         else if (gamePlayer->getHitFlag() == false)
                         {
