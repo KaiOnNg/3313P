@@ -108,7 +108,7 @@ public:
         // Wait for response
         while (true)
         {
-            ByteArray data("\nDo you want to hit or stand");
+            ByteArray data("Do you want to hit or stand");
             socket.Write(data);
 
             // Wait for response
@@ -139,10 +139,6 @@ public:
     {
 
         return this->isContinue;
-    }
-
-    void deal(int card, Shared<MyShared> shared)
-    {
     }
 
     void readHand(Shared<MyShared> sharedmemory)
@@ -385,16 +381,27 @@ public:
     {
         try
         {
-            Shared<MyShared> shared("sharedMemory");
+            // Shared<MyShared> shared("sharedMemory");
 
             try
             {
                 continueFlag = true;
                 while (continueFlag == true)
                 {
-
+                    Shared<MyShared> shared("sharedMemory");
                     std::cout << "Starting a new game..." << std::endl;
                     // initialize two card to the shared memory
+
+                    write.Wait();
+                    this->initializeDeck();
+                    for (int i = 0; i < 10; i++)
+                    {
+                        shared->table[roomId].dealerHand[i] = 0;
+                        shared->table[roomId].playerHand[i] = 0;
+                    }
+                    shared->table[roomId].dealerHandSize = 0;
+                    shared->table[roomId].playerHandSize = 0;
+                    write.Signal();
 
                     for (int i = 0; i < 2; ++i)
                     {
