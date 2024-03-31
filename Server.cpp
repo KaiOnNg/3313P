@@ -109,8 +109,13 @@ public:
 
     void askHit()
     {
+
+        // Wait for response
+
         ByteArray data("Do you want to hit or stand");
         socket.Write(data);
+
+        // Wait for response
 
         ByteArray receivedData;
         socket.Read(receivedData);
@@ -146,7 +151,8 @@ public:
         dealerHand.clear();
         std::copy_n(sharedmemory->table[roomId].playerHand, sharedmemory->table[roomId].playerHandSize, std::back_inserter(playerHand));
         std::copy_n(sharedmemory->table[roomId].dealerHand, sharedmemory->table[roomId].dealerHandSize, std::back_inserter(dealerHand));
-
+        // have not define the read and wirte semaphore
+        write.Signal();
         // set up the string for printing
         std::string handStr;
         handStr += "Dealer's hand: ";
@@ -162,27 +168,6 @@ public:
         }
 
         ByteArray data(handStr + "\n");
-        socket.Write(data);
-        // have not define the read and wirte semaphore
-        write.Signal();
-    }
-
-    void send(Shared<MyShared> sharedMemory)
-    {
-
-        // avoid dead lock
-        std::string sendData = "Player: ";
-        for (int card : playerHand)
-        {
-            sendData += std::to_string(card) + " ";
-        }
-        sendData += "Dealer: ";
-        for (int card : dealerHand)
-        {
-            sendData += std::to_string(card) + " ";
-        }
-
-        ByteArray data(sendData);
         socket.Write(data);
     }
 
@@ -267,9 +252,6 @@ public:
 
         read.Wait();
 
-        // dealerHand = sharedMemory->dealerHand1;
-        // playerHand = sharedMemory->playerHand1;
-
         read.Signal();
         // avoid dead lock
         std::string sendData = "Player: ";
@@ -315,7 +297,6 @@ public:
     Player *gamePlayer;
     bool continueFlag;
     std::vector<Spectator *> Spectatorlist;
-    // define index = 0 for dealer index = 1 for player
     std::vector<std::vector<int>> deck;
 
     // create semaphore for read and write
@@ -343,19 +324,37 @@ public:
     void initializeDeck()
     {
         deck.clear();
-        deck.resize(4);
-        for (int i = 0; i < 4; ++i)
-        { // For each suit
-            for (int j = 2; j <= 11; ++j)
-            { // Add cards 2-10 and Ace as 11
-                deck[i].push_back(j);
-            }
+        deck.resize(4, std::vector<int>(13)); // Pre-fill each suit with space for 13 cards
 
-            deck[i].push_back(10); // Queen
-            deck[i].push_back(10); // King
-            deck[i].push_back(10); // Jack
+        // Create a flat deck of 52 cards
+        std::vector<int> flatDeck(52);
+        int card = 0;
+        // Fill the flat deck with card values
+        for (int i = 0; i < 4; ++i)
+        {
+            for (int j = 2; j <= 14; ++j, ++card)
+            {                                        // Use 11 for Jack, 12 for Queen, 13 for King, 14 for Ace
+                flatDeck[card] = (j <= 10) ? j : 10; // Face cards (Jack, Queen, King) are valued at 10, Ace initially as 11
+                if (j == 14)
+                    flatDeck[card] = 11; // Ace
+            }
         }
-        std::shuffle(deck.begin(), deck.end(), std::default_random_engine(std::chrono::system_clock::now().time_since_epoch().count()));
+
+        // Shuffle the flat deck
+        std::shuffle(flatDeck.begin(), flatDeck.end(), std::default_random_engine(static_cast<unsigned int>(std::time(nullptr))));
+
+        // Distribute the shuffled cards back into the suits
+        for (int i = 0; i < 52; ++i)
+        {
+            deck[i % 4][i / 4] = flatDeck[i];
+        }
+    }
+
+    void dealCard(std::vector<std::vector<int>> &deck, int hand[], int &handSize)
+    {
+        hand[handSize] = deck[0][deck[0].size() - 1];
+        deck[0].pop_back();
+        handSize++;
     }
 
     virtual long ThreadMain(void) override
@@ -376,24 +375,12 @@ public:
 
                     // ways to get and use shared memory data
 
-                    // std::cout << "dealerhand size before adding card: " << shared->table[0].dealerHandSize << std::endl;
-
                     // // Adding a card to the dealer's hand
-                    for (int i = 0; i < 2; i++)
-                    {
-                        if (shared->table[0].dealerHandSize < 10)
-                        {                                                                     // Ensure there's space for another card
-                            shared->table[0].dealerHand[shared->table[0].dealerHandSize] = 3; // Add a card (e.g., '3')
-                            shared->table[0].dealerHandSize++;                                // Increment the count
-                            std::cout << "Added card '3' to dealer's hand. New dealerhand size: " << shared->table[0].dealerHandSize << std::endl;
-                        }
 
-                        if (shared->table[0].playerHandSize < 10)
-                        {                                                                     // Ensure there's space for another card
-                            shared->table[0].playerHand[shared->table[0].playerHandSize] = 3; // Add a card (e.g., '3')
-                            shared->table[0].playerHandSize++;                                // Increment the count
-                            std::cout << "Added card '3' to player's hand. New dealerhand size: " << shared->table[0].playerHandSize << std::endl;
-                        }
+                    for (int i = 0; i < 2; ++i)
+                    {
+                        dealCard(deck, shared->table[roomId].dealerHand, shared->table[roomId].dealerHandSize);
+                        dealCard(deck, shared->table[roomId].playerHand, shared->table[roomId].playerHandSize);
                     }
 
                     if (Spectatorlist.size() != 0)
@@ -461,7 +448,7 @@ public:
                             }
                         }
                         // since the player has finished his round and act as a spectator
-                        gamePlayer->send(shared);
+                        gamePlayer->readHand(shared);
                     }
 
                     // if player exploded

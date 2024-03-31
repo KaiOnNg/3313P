@@ -6,12 +6,14 @@
 #include <netinet/in.h> // For sockaddr_in
 #include <unistd.h>     // For read/write/close
 
-int main() {
+int main()
+{
     int sockfd;
     struct sockaddr_in servaddr;
 
     // Create socket
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    {
         std::cerr << "Socket creation failed" << std::endl;
         exit(EXIT_FAILURE);
     }
@@ -21,10 +23,11 @@ int main() {
     // Server information
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(12345); // Server port number
-    //servaddr.sin_addr.s_addr = inet_addr("127.0.0.1",12345); // Server IP, localhost for testing
+    // servaddr.sin_addr.s_addr = inet_addr("127.0.0.1",12345); // Server IP, localhost for testing
 
     // Connect to the server
-    if (connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0) {
+    if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
+    {
         std::cerr << "Connection to the server failed" << std::endl;
         exit(EXIT_FAILURE);
     }
@@ -33,27 +36,39 @@ int main() {
 
     std::string input;
     char buffer[1024] = {0};
-    while (true) {
-        // Wait for response
+    while (true)
+    {
+        memset(buffer, 0, sizeof(buffer)); // Clear buffer before reading
+
         int n = read(sockfd, buffer, sizeof(buffer));
-        if (n > 0) {
-            if (std::string(buffer, n) == "bye"){
+        if (n > 0)
+        {
+            std::string receivedMsg(buffer, n);
+            if (receivedMsg == "bye")
+            {
                 break;
             }
-            std::cout << "Server: " << std::string(buffer, n) << std::endl;
-        } else {
+            std::cout << "Server: " << receivedMsg << std::endl;
+
+            if (receivedMsg == "Do you want to hit or stand")
+            {
+                std::cout << "> ";
+                std::getline(std::cin, input); // Get input from the user
+
+                // Send input to the server with error checking
+                ssize_t bytesSent = send(sockfd, input.c_str(), input.length(), 0);
+                if (bytesSent < 0)
+                {
+                    std::cerr << "Failed to send data to server." << std::endl;
+                    break; // or handle error as appropriate
+                }
+            }
+        }
+        else
+        {
             std::cout << "No response from server, or connection closed." << std::endl;
             break;
         }
-
-
-        std::cout << "> ";
-        std::getline(std::cin, input); // Get input from the user
-
-        // Send input to the server
-        send(sockfd, input.c_str(), input.length(), 0);
-
-        memset(buffer, 0, sizeof(buffer)); // Clear buffer
     }
 
     // Close the socket
