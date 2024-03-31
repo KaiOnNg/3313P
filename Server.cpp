@@ -362,13 +362,24 @@ public:
     {
         try
         {
-            Shared<MyShared> shared("sharedMemory");
-
             try
             {
                 continueFlag = true;
                 while (continueFlag == true)
                 {
+                    Shared<MyShared> shared("sharedMemory");
+
+                    // Initialize the table
+                    // Reset hands to initial values, here assuming 0 as the initial value.
+                    write.Wait();
+                    shared->table[roomId].dealerHandSize = 0;
+                    shared->table[roomId].playerHandSize = 0;
+                    for (int i = 0; i < 10; ++i)
+                    {
+                        shared->table[roomId].dealerHand[i] = 0;
+                        shared->table[roomId].playerHand[i] = 0;
+                    }
+                    write.Signal();
 
                     std::cout << "Starting a new game..." << std::endl;
                     // initialize two card to the shared memory
