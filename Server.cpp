@@ -156,7 +156,7 @@ public:
             handStr += std::to_string(playerHand[i]) + " ";
         }
 
-        ByteArray data(handStr + "\n");
+        ByteArray data(handStr);
         socket.Write(data);
     }
 
@@ -466,7 +466,7 @@ public:
                             }
                         }
                         // since the player has finished his round and act as a spectator
-                        gamePlayer->send(shared);
+                        gamePlayer->readHand(shared);
                     }
 
                     // if player exploded
