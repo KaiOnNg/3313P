@@ -38,29 +38,36 @@ int main()
     char buffer[1024] = {0};
     while (true)
     {
-        // Wait for response
+        memset(buffer, 0, sizeof(buffer)); // Clear buffer before reading
+
         int n = read(sockfd, buffer, sizeof(buffer));
         if (n > 0)
         {
-            if (std::string(buffer, n) == "bye")
+            std::string receivedMsg(buffer, n);
+            if (receivedMsg == "bye")
             {
                 break;
             }
-            std::cout << std::string(buffer, n) << std::endl;
+            std::cout << "Server: " << receivedMsg << std::endl;
+
+            if (receivedMsg == "Do you want to hit or stand" || receivedMsg == "Do you want to continue playing? (yes or no)")
+            {
+                std::cout << "> ";
+                std::getline(std::cin, input); // Get input from the user
+
+                // Send input to the server with error checking
+                ssize_t bytesSent = send(sockfd, input.c_str(), input.length(), 0);
+                if (bytesSent < 0)
+                {
+                    std::cerr << "Failed to send data to server." << std::endl;
+                    break; // or handle error as appropriate
+                }
+            }
         }
         else
         {
             std::cout << "No response from server, or connection closed." << std::endl;
             break;
-        }
-
-        if (std::string(buffer, n) == "Do you want to hit or stand" || std::string(buffer, n) == "Do you want to continue playing? (yes or no)")
-        {
-            std::cout << "> ";
-            std::getline(std::cin, input); // Get input from the user
-
-            // Send input to the server
-            send(sockfd, input.c_str(), input.length(), 0);
         }
 
         memset(buffer, 0, sizeof(buffer)); // Clear buffer
