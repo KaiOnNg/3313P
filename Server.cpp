@@ -113,7 +113,7 @@ public:
         socket.Write(data);
 
         ByteArray receivedData;
-        int receivedData = socket.Read(receivedData);
+        socket.Read(receivedData);
         std::string received(receivedData.v.begin(), receivedData.v.end());
 
         if (received == "hit")
@@ -379,27 +379,22 @@ public:
                     // std::cout << "dealerhand size before adding card: " << shared->table[0].dealerHandSize << std::endl;
 
                     // // Adding a card to the dealer's hand
-                    if (shared->table[0].dealerHandSize < 10)
-                    {                                                                     // Ensure there's space for another card
-                        shared->table[0].dealerHand[shared->table[0].dealerHandSize] = 3; // Add a card (e.g., '3')
-                        shared->table[0].dealerHandSize++;                                // Increment the count
-                        std::cout << "Added card '3' to dealer's hand. New dealerhand size: " << shared->table[0].dealerHandSize << std::endl;
-                    }
+                    for (int i = 0; i < 2; i++)
+                    {
+                        if (shared->table[0].dealerHandSize < 10)
+                        {                                                                     // Ensure there's space for another card
+                            shared->table[0].dealerHand[shared->table[0].dealerHandSize] = 3; // Add a card (e.g., '3')
+                            shared->table[0].dealerHandSize++;                                // Increment the count
+                            std::cout << "Added card '3' to dealer's hand. New dealerhand size: " << shared->table[0].dealerHandSize << std::endl;
+                        }
 
-                    if (shared->table[0].playerHandSize < 10)
-                    {                                                                     // Ensure there's space for another card
-                        shared->table[0].playerHand[shared->table[0].playerHandSize] = 3; // Add a card (e.g., '3')
-                        shared->table[0].playerHandSize++;                                // Increment the count
-                        std::cout << "Added card '3' to player's hand. New dealerhand size: " << shared->table[0].playerHandSize << std::endl;
+                        if (shared->table[0].playerHandSize < 10)
+                        {                                                                     // Ensure there's space for another card
+                            shared->table[0].playerHand[shared->table[0].playerHandSize] = 3; // Add a card (e.g., '3')
+                            shared->table[0].playerHandSize++;                                // Increment the count
+                            std::cout << "Added card '3' to player's hand. New dealerhand size: " << shared->table[0].playerHandSize << std::endl;
+                        }
                     }
-
-                    // // print out the dealer's hand after adding
-                    // std::cout << "Dealer Hand after adding card: ";
-                    // for (int i = 0; i < shared->table[0].dealerHandSize; ++i)
-                    // {
-                    //     std::cout << shared->table[0].dealerHand[i] << " ";
-                    // }
-                    // std::cout << std::endl;
 
                     if (Spectatorlist.size() != 0)
                     {
@@ -452,7 +447,8 @@ public:
                     {
                         // if dealer satisfy the condition then add card to shared memory
                         // shared->dealerHand1.push_back(deck[rand() % 4][rand() % 13]);
-                        if (gameDealer->calculateHandTotal() < 20){
+                        if (gameDealer->calculateHandTotal() < 20)
+                        {
                             break;
                         }
                         gameDealer->deal(shared);
@@ -526,7 +522,7 @@ public:
                     if (gamePlayer->getContinue())
                     {
                         // nothing change
-                        //Write something to client
+                        // Write something to client
                         gamePlayer->sendWinner("You continue playing!");
                     }
                     else
