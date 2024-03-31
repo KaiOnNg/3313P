@@ -372,7 +372,7 @@ public:
 
                     std::cout << "Starting a new game..." << std::endl;
                     // initialize two card to the shared memory
-                    gamePlayer->deal(deck[0][5]);
+                    // gamePlayer->deal(deck[0][5]);
 
                     // ways to get and use shared memory data
 
@@ -452,6 +452,9 @@ public:
                     {
                         // if dealer satisfy the condition then add card to shared memory
                         // shared->dealerHand1.push_back(deck[rand() % 4][rand() % 13]);
+                        if (gameDealer->calculateHandTotal() < 20){
+                            break;
+                        }
                         gameDealer->deal(shared);
                         // let spector get information
                         if (Spectatorlist.size() != 0)
@@ -523,10 +526,13 @@ public:
                     if (gamePlayer->getContinue())
                     {
                         // nothing change
+                        //Write something to client
+                        gamePlayer->sendWinner("You continue playing!");
                     }
                     else
                     {
                         // let the connetion close
+                        gamePlayer->sendWinner("Bye");
                         gamePlayer->closeConneton();
                         // then set the first spectator as the player
                         // assign the member to here
@@ -552,7 +558,6 @@ public:
 
                 std::this_thread::sleep_for(std::chrono::seconds(10));
                 std::cout << "Game room ending...\n";
-                return 0;
             }
             catch (std::string &e)
             {

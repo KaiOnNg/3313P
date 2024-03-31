@@ -37,11 +37,15 @@ int main() {
         // Wait for response
         int n = read(sockfd, buffer, sizeof(buffer));
         if (n > 0) {
+            if (std::string(buffer, n) == "bye"){
+                break;
+            }
             std::cout << "Server: " << std::string(buffer, n) << std::endl;
         } else {
             std::cout << "No response from server, or connection closed." << std::endl;
             break;
         }
+
 
         std::cout << "> ";
         std::getline(std::cin, input); // Get input from the user
