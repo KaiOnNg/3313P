@@ -102,7 +102,7 @@ public:
         this->explode = explode;
     }
 
-    int* getHand()
+    int *getHand()
     {
         return playerHand;
     }
@@ -110,7 +110,6 @@ public:
     void askHit()
     {
         ByteArray data("Do you want to hit or stand");
-        // message type = 1 hit
         socket.Write(data);
 
         int receivedData = socket.Read(data);
@@ -118,6 +117,7 @@ public:
 
         if (received == "hit")
         {
+            std::cout << "hit" << std::endl;
             hitFlag = true;
         }
         else if (received == "stand")
@@ -144,7 +144,8 @@ public:
         std::copy_n(sharedmemory->table[0].playerHand, sharedmemory->table[0].playerHandSize, playerHand);
         std::cout << sharedmemory->table[0].playerHand[sharedmemory->table[0].dealerHandSize] << std::endl;
         std::string hand = "";
-        for (int i = 0; i < sharedmemory->table[0].playerHandSize; i++){
+        for (int i = 0; i < sharedmemory->table[0].playerHandSize; i++)
+        {
             hand += sharedmemory->table[0].playerHand[i] + " / ";
         }
         ByteArray data(hand + "\n");
@@ -276,7 +277,6 @@ public:
     void setRoomId(int roomId)
     {
         this->roomId = roomId;
-        this->read = Semaphore("read" + roomId);
     }
 
     void askRoom()
@@ -347,16 +347,12 @@ public:
 
     virtual long ThreadMain(void) override
     {
-        // Game logic goes here. For now, just a placeholder.
-        // Simulate game room activity
-
         try
         {
             Shared<MyShared> shared("sharedMemory");
 
             try
             {
-                // initiali case
                 continueFlag = true;
                 while (continueFlag == true)
                 {
@@ -407,9 +403,12 @@ public:
                     // shared->dealerHand1.push_back(deck[rand() % 4][rand() % 13]);
                     // std::cout << "1" << std::endl;
 
-                    for (auto *spectator : Spectatorlist)
+                    if (Spectatorlist.size() != 0)
                     {
-                        spectator->send(shared);
+                        for (auto *spectator : Spectatorlist)
+                        {
+                            spectator->send(shared);
+                        }
                     }
 
                     gamePlayer->readHand(shared);
@@ -434,9 +433,12 @@ public:
                             break;
                         };
 
-                        for (auto *spectator : Spectatorlist)
+                        if (Spectatorlist.size() != 0)
                         {
-                            spectator->send(shared);
+                            for (auto *spectator : Spectatorlist)
+                            {
+                                spectator->send(shared);
+                            }
                         }
                     }
 
@@ -448,9 +450,12 @@ public:
                         // shared->dealerHand1.push_back(deck[rand() % 4][rand() % 13]);
                         gameDealer->deal(shared);
                         // let spector get information
-                        for (auto *spectator : Spectatorlist)
+                        if (Spectatorlist.size() != 0)
                         {
-                            spectator->send(shared);
+                            for (auto *spectator : Spectatorlist)
+                            {
+                                spectator->send(shared);
+                            }
                         }
                         // since the player has finished his round and act as a spectator
                         gamePlayer->send(shared);
@@ -461,10 +466,12 @@ public:
                     {
                         // dealer wins, notify player and all spectators
                         gamePlayer->sendWinner("Dealer wins!!");
-
-                        for (auto *spectator : Spectatorlist)
+                        if (Spectatorlist.size() != 0)
                         {
-                            spectator->sendWinner("Dealer wins!!");
+                            for (auto *spectator : Spectatorlist)
+                            {
+                                spectator->sendWinner("Dealer wins!!");
+                            }
                         }
                     }
 
@@ -473,9 +480,12 @@ public:
                     {
                         // Player wins, notify player and all spectators
                         gamePlayer->sendWinner("Player wins!!");
-                        for (auto *spectator : Spectatorlist)
+                        if (Spectatorlist.size() != 0)
                         {
-                            spectator->sendWinner("Player wins!!");
+                            for (auto *spectator : Spectatorlist)
+                            {
+                                spectator->sendWinner("Player wins!!");
+                            }
                         }
                     }
 
@@ -484,19 +494,24 @@ public:
                     {
                         // dealer wins, notify player and all spectators
                         gamePlayer->sendWinner("Dealer wins!!");
-
-                        for (auto *spectator : Spectatorlist)
+                        if (Spectatorlist.size() != 0)
                         {
-                            spectator->sendWinner("Dealer wins!!");
+                            for (auto *spectator : Spectatorlist)
+                            {
+                                spectator->sendWinner("Dealer wins!!");
+                            }
                         }
                     }
                     else
                     {
                         // Player wins, notify player and all spectators
                         gamePlayer->sendWinner("Player wins!!");
-                        for (auto *spectator : Spectatorlist)
+                        if (Spectatorlist.size() != 0)
                         {
-                            spectator->sendWinner("Player wins!!");
+                            for (auto *spectator : Spectatorlist)
+                            {
+                                spectator->sendWinner("Player wins!!");
+                            }
                         }
                     }
 
