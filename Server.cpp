@@ -146,29 +146,33 @@ public:
         return this->isContinue;
     }
 
-    void readHand(Shared<MyShared> sharedmemory)
+    void readHand(int dealer[], int player[], int dealerHandSize, int playerHandSize)
     {
+        // dealerHand.clear();
+        // playerHand.clear();
+
         // playerHand will have the playerHand on shared memory
-        playerHand.clear();
-        dealerHand.clear();
-        std::copy_n(sharedmemory->table[roomId].playerHand, sharedmemory->table[roomId].playerHandSize, std::back_inserter(playerHand));
-        std::copy_n(sharedmemory->table[roomId].dealerHand, sharedmemory->table[roomId].dealerHandSize, std::back_inserter(dealerHand));
-        // set up the string for printing
+        std::copy_n(dealer, dealerHandSize, dealerHand.begin());
+        std::copy_n(player, playerHandSize, playerHand.begin());
+
         std::string handStr;
         handStr += "Dealer's hand:\n";
-        for (int i = 0; i < dealerHand.size(); ++i)
+        for (int i = 0; i < dealerHandSize; ++i)
         {
             handStr += std::to_string(dealerHand[i]) + " ";
         }
         handStr += "\nPlayer's hand:\n";
-        for (int i = 0; i < playerHand.size(); ++i)
+        for (int i = 0; i < playerHandSize; ++i)
         {
             handStr += std::to_string(playerHand[i]) + " ";
         }
+
         handStr += "\nYour total is: " + std::to_string(calculateHandTotal()) + "\n";
+        
         socketWrite.Wait();
         ByteArray data(handStr);
         socket.Write(data);
+
     }
 
     void askContinue()
@@ -193,6 +197,10 @@ public:
 
     void sendWinner(std::string string)
     {
+        for (int i = 0; i < 10; i++){
+            playerHand[i] = 0;
+            dealerHand[i] = 0;
+        }
         socketWrite.Wait();
         socket.Write(string);
     }
@@ -207,7 +215,7 @@ public:
     int calculateHandTotal()
     {
         int total = 0;
-        for (int card : this->playerHand)
+        for (int card : playerHand)
         {
             total += card;
         }
@@ -391,7 +399,7 @@ public:
                             spectator->send(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
                         }
                     }
-                    gamePlayer->readHand(shared);
+                    gamePlayer->readHand(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
 
                     write.Signal();
                     // player hit the card
@@ -417,7 +425,7 @@ public:
                                 }
                             }
 
-                            gamePlayer->readHand(shared);
+                            gamePlayer->readHand(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
 
                             write.Signal();
 
@@ -459,7 +467,7 @@ public:
                                 }
                             }
                             // since the player has finished his round and act as a spectator
-                            gamePlayer->readHand(shared);
+                            gamePlayer->readHand(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
                             write.Signal();
                         }
                         else
@@ -539,7 +547,11 @@ public:
                             // Or Spectatorlist[0] // Then set the first spectator as the player // Assign the member to here
                             gamePlayer = new Player(firstSpectator->getSocket(), firstSpectator->getRoomId()); // Reset the first place of vector list by Removing the first element
                             Spectatorlist.erase(Spectatorlist.begin());
-                        }
+                        } 
+                        else
+                        {
+                            gamePlayer = nullptr;
+                        } 
                     }
 
                     if (gamePlayer == nullptr && Spectatorlist.size() == 0)
@@ -554,7 +566,7 @@ public:
                     }
                 }
 
-                std::this_thread::sleep_for(std::chrono::seconds(10));
+                std::this_thread::sleep_for(std::chrono::seconds(2));
                 std::cout << "Game room ending...\n";
             }
             catch (std::string &e)
