@@ -46,29 +46,32 @@ int main()
             std::string receivedMsg(buffer, n);
             if (receivedMsg == "bye")
             {
+                std::cout << std::endl;
                 break;
             }
             std::cout << "\n"
-                      << receivedMsg << std::endl;
+                      << receivedMsg << "\n"
+                      << std::endl;
 
-            if (receivedMsg == "Do you want to hit or stand" || receivedMsg == "Do you want to continue playing? (yes or no)")
+            if (receivedMsg == "Do you want to hit or stand" || receivedMsg == "Do you want to continue playing? (yes or no)" || receivedMsg == "which rooom do you want to join in 1 or 2 or 3")
             {
-                std::cout << "> ";
-                std::getline(std::cin, input); // Get input from the user
-
-                // Send input to the server with error checking
-                ssize_t bytesSent = send(sockfd, input.c_str(), input.length(), 0);
-                if (bytesSent < 0)
-                {
-                    std::cerr << "Failed to send data to server." << std::endl;
-                    break; // or handle error as appropriate
-                }
             }
         }
         else
         {
             std::cout << "No response from server, or connection closed." << std::endl;
             break;
+        }
+
+        std::cout << "> ";
+        std::getline(std::cin, input); // Get input from the user
+
+        // Send input to the server with error checking
+        ssize_t bytesSent = send(sockfd, input.c_str(), input.length(), 0);
+        if (bytesSent < 0)
+        {
+            std::cerr << "Failed to send data to server." << std::endl;
+            break; // or handle error as appropriate
         }
 
         memset(buffer, 0, sizeof(buffer)); // Clear buffer

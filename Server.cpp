@@ -108,6 +108,7 @@ public:
         // Wait for response
         while (true)
         {
+            sleep(0.5);
             ByteArray data("Do you want to hit or stand");
             socket.Write(data);
 
@@ -116,6 +117,7 @@ public:
             ByteArray receivedData;
             socket.Read(receivedData);
             std::string received(receivedData.v.begin(), receivedData.v.end());
+            std::cout << received << std::endl;
 
             if (received == "hit")
             {
@@ -129,6 +131,7 @@ public:
             }
             else
             {
+                sleep(0.5);
                 ByteArray error("Invalid input, please try again.");
                 socket.Write(error);
             }
@@ -143,17 +146,23 @@ public:
 
     void readHand(Shared<MyShared> sharedmemory)
     {
-
-        write.Wait();
         // playerHand will have the playerHand on shared memory
         playerHand.clear();
         dealerHand.clear();
+        write.Wait();
+        std::cout << "@@" << std::endl;
+        std::cout << sharedmemory->table[roomId].playerHand << std::endl;
+        std::cout << sharedmemory->table[0].playerHandSize << std::endl;
+        std::cout << playerHand[0] << std::endl;
         std::copy_n(sharedmemory->table[roomId].playerHand, sharedmemory->table[roomId].playerHandSize, std::back_inserter(playerHand));
+        std::cout << "@@" << std::endl;
         std::copy_n(sharedmemory->table[roomId].dealerHand, sharedmemory->table[roomId].dealerHandSize, std::back_inserter(dealerHand));
+        std::cout << "@@" << std::endl;
         // have not define the read and wirte semaphore
         write.Signal();
         // set up the string for printing
         std::string handStr;
+        std::cout << "@@" << std::endl;
         handStr += "Dealer's hand: ";
         for (int i = 0; i < dealerHand.size(); ++i)
         {
@@ -169,11 +178,11 @@ public:
         ByteArray data(handStr);
         socket.Write(data);
         // have not define the read and wirte semaphore
-        write.Signal();
     }
 
     void askContinue()
     {
+        sleep(0.5);
         ByteArray data("Do you want to continue playing? (yes or no)");
         // message type = 1 hit
         socket.Write(data);
@@ -248,13 +257,8 @@ public:
         this->read = read;
     }
 
-    void send(Shared<MyShared> sharedMemory)
+    void send()
     {
-
-        read.Wait();
-
-        read.Signal();
-        // avoid dead lock
         std::string sendData = "Player: ";
         for (int card : playerHand)
         {
@@ -362,14 +366,13 @@ public:
     {
         try
         {
-            // Shared<MyShared> shared("sharedMemory");
-
             try
             {
                 continueFlag = true;
                 while (continueFlag == true)
                 {
                     Shared<MyShared> shared("sharedMemory");
+
                     std::cout << "Starting a new game..." << std::endl;
                     // initialize two card to the shared memory
 
@@ -380,27 +383,32 @@ public:
                         shared->table[roomId].dealerHand[i] = 0;
                         shared->table[roomId].playerHand[i] = 0;
                     }
+
                     shared->table[roomId].dealerHandSize = 0;
                     shared->table[roomId].playerHandSize = 0;
+
                     write.Signal();
 
+                    write.Wait();
                     for (int i = 0; i < 2; ++i)
                     {
                         dealCard(deck, shared->table[roomId].dealerHand, shared->table[roomId].dealerHandSize);
                         dealCard(deck, shared->table[roomId].playerHand, shared->table[roomId].playerHandSize);
                     }
+                    std::cout << shared->table[0].dealerHandSize << std::endl;
 
-                    write.Wait();
                     gameDealer->deal(shared->table[roomId].dealerHand);
+
                     write.Signal();
 
                     if (Spectatorlist.size() != 0)
                     {
                         for (auto *spectator : Spectatorlist)
                         {
-                            spectator->send(shared);
+                            spectator->send();
                         }
                     }
+                    std::cout << shared->table[0].dealerHandSize << std::endl;
 
                     gamePlayer->readHand(shared);
 
@@ -408,6 +416,7 @@ public:
                     while (true)
                     {
                         Shared<MyShared> shared("sharedMemory");
+                        std::cout << "test" << std::endl;
                         gamePlayer->askHit();
 
                         if (gamePlayer->getHitFlag())
@@ -436,12 +445,13 @@ public:
                         {
                             for (auto *spectator : Spectatorlist)
                             {
-                                spectator->send(shared);
+                                spectator->send();
                             }
                         }
                     }
 
                     // dealer begin hit the card
+                    std::cout << "here" << std::endl;
 
                     while ((!gamePlayer->getExplode() && gameDealer->calculateHandTotal() < 17))
                     {
@@ -461,7 +471,7 @@ public:
                         {
                             for (auto *spectator : Spectatorlist)
                             {
-                                spectator->send(shared);
+                                spectator->send();
                             }
                         }
                         // since the player has finished his round and act as a spectator
@@ -481,9 +491,8 @@ public:
                             }
                         }
                     }
-
                     // if dealer exploded
-                    if (gameDealer->calculateHandTotal() > 21)
+                    else if (gameDealer->calculateHandTotal() > 21)
                     {
                         // Player wins, notify player and all spectators
                         gamePlayer->sendWinner("Player wins!!");
@@ -497,7 +506,7 @@ public:
                     }
 
                     // compare score
-                    if (gameDealer->calculateHandTotal() > gamePlayer->calculateHandTotal())
+                    else if (gameDealer->calculateHandTotal() > gamePlayer->calculateHandTotal())
                     {
                         // dealer wins, notify player and all spectators
                         gamePlayer->sendWinner("Dealer wins!!");
@@ -546,8 +555,6 @@ public:
                     {
 
                         // terminate the thread if there is no player and the list is empty
-                        // std::cout << "Thread has finished execution.\n";
-                        // return 0;  then terminat
                         continueFlag = false;
                     }
                     else
@@ -582,8 +589,8 @@ int main()
 
     std::cout << "Server started. Listening for connections...\n";
 
-    Semaphore write = Semaphore("write" + count, 1, true);
-    Semaphore read = Semaphore("read" + count, 0, true);
+    Semaphore write = Semaphore("write", 1, true);
+    Semaphore read = Semaphore("read", 0, true);
 
     Shared<MyShared> sharedMemory("sharedMemory", true);
     // Accept connections and create game rooms
@@ -611,7 +618,6 @@ int main()
                 //  if (out of range ---- retry) inside the range put to the spectator list
 
                 // send current situation of current rooom
-                std::cout << "Spectator" << std::endl;
                 Spectator *newSpec = new Spectator(newConnection, Semaphore("read"));
                 newSpec->askRoom();
                 ByteArray response;
@@ -621,7 +627,6 @@ int main()
                 {
                     break;
                 }
-                read = Semaphore("read" + receive);
                 if (receive == "1")
                 {
                     // newSpec->setSemaphore(read);
