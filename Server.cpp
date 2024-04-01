@@ -18,6 +18,9 @@ using namespace Sync;
 // set a global value
 int count = 0;
 
+// semaphore arranging socket write
+Semaphore socketWrite("socketWrite", 1, true);
+
 // std::atomic<int> count(0);
 
 struct TableData
@@ -104,13 +107,13 @@ public:
 
     void askHit()
     {
+        socketWrite.Wait();
+        ByteArray data("Do you want to hit or stand?");
+        socket.Write(data);
 
         // Wait for response
         while (true)
         {
-            ByteArray data("Do you want to hit or stand");
-            socket.Write(data);
-
             // Wait for response
 
             ByteArray receivedData;
@@ -129,7 +132,8 @@ public:
             }
             else
             {
-                ByteArray error("Invalid input, please try again.");
+                socketWrite.Wait();
+                ByteArray error("Invalid input, please try again.\n");
                 socket.Write(error);
             }
         }
@@ -154,26 +158,28 @@ public:
         write.Signal();
         // set up the string for printing
         std::string handStr;
-        handStr += "Dealer's hand: ";
+        handStr += "Dealer's hand:\n";
         for (int i = 0; i < dealerHand.size(); ++i)
         {
             handStr += std::to_string(dealerHand[i]) + " ";
         }
 
-        handStr += "\nPlayer's hand: ";
+        handStr += "\nPlayer's hand:\n";
         for (int i = 0; i < playerHand.size(); ++i)
         {
             handStr += std::to_string(playerHand[i]) + " ";
         }
 
+        handStr += "\nYour total is: " + std::to_string(calculateHandTotal()) + "\n";
+
+        socketWrite.Wait();
         ByteArray data(handStr);
         socket.Write(data);
-        // have not define the read and wirte semaphore
-        write.Signal();
     }
 
     void askContinue()
     {
+        socketWrite.Wait();
         ByteArray data("Do you want to continue playing? (yes or no)");
         // message type = 1 hit
         socket.Write(data);
@@ -193,7 +199,7 @@ public:
 
     void sendWinner(std::string string)
     {
-
+        socketWrite.Wait();
         socket.Write(string);
     }
 
@@ -255,17 +261,18 @@ public:
 
         read.Signal();
         // avoid dead lock
-        std::string sendData = "Player: ";
+        std::string sendData = "Player:\n";
         for (int card : playerHand)
         {
-            sendData += std::to_string(card) + " ";
+            sendData += std::to_string(card) + " " + "\n";
         }
-        sendData += "Dealer: ";
+        sendData += "Dealer:\n";
         for (int card : dealerHand)
         {
-            sendData += std::to_string(card) + " ";
+            sendData += std::to_string(card) + " " + "\n";
         }
 
+        socketWrite.Wait();
         ByteArray data(sendData);
         socket.Write(data);
     }
@@ -278,12 +285,14 @@ public:
     void askRoom()
     {
         // since when the room achieve 3, then it will assign the new comeer be the spectator
-        ByteArray data("which rooom do you want to join in 1 or 2 or 3");
+        socketWrite.Wait();
+        ByteArray data("which rooom do you want to join in 1 or 2 or 3\n");
         socket.Write(data);
     }
 
     void sendWinner(std::string string)
     {
+        socketWrite.Wait();
         socket.Write(string);
     }
 };
@@ -475,7 +484,7 @@ public:
                         {
                             for (auto *spectator : Spectatorlist)
                             {
-                                spectator->sendWinner("Dealer wins!!");
+                                spectator->sendWinner("Dealer wins!!\n");
                             }
                         }
                     }
@@ -484,12 +493,12 @@ public:
                     if (gameDealer->calculateHandTotal() > 21)
                     {
                         // Player wins, notify player and all spectators
-                        gamePlayer->sendWinner("Player wins!!");
+                        gamePlayer->sendWinner("Player wins!!\n");
                         if (Spectatorlist.size() != 0)
                         {
                             for (auto *spectator : Spectatorlist)
                             {
-                                spectator->sendWinner("Player wins!!");
+                                spectator->sendWinner("Player wins!!\n");
                             }
                         }
                     }
@@ -498,24 +507,24 @@ public:
                     if (gameDealer->calculateHandTotal() > gamePlayer->calculateHandTotal())
                     {
                         // dealer wins, notify player and all spectators
-                        gamePlayer->sendWinner("Dealer wins!!");
+                        gamePlayer->sendWinner("Dealer wins!!\n");
                         if (Spectatorlist.size() != 0)
                         {
                             for (auto *spectator : Spectatorlist)
                             {
-                                spectator->sendWinner("Dealer wins!!");
+                                spectator->sendWinner("Dealer wins!!\n");
                             }
                         }
                     }
                     else
                     {
                         // Player wins, notify player and all spectators
-                        gamePlayer->sendWinner("Player wins!!");
+                        gamePlayer->sendWinner("Player wins!!\n");
                         if (Spectatorlist.size() != 0)
                         {
                             for (auto *spectator : Spectatorlist)
                             {
-                                spectator->sendWinner("Player wins!!");
+                                spectator->sendWinner("Player wins!!\n");
                             }
                         }
                     }
@@ -525,12 +534,12 @@ public:
                     {
                         // nothing change
                         // Write something to client
-                        gamePlayer->sendWinner("You continue playing!");
+                        gamePlayer->sendWinner("You continue playing!\n");
                     }
                     else
                     {
                         // let the connetion close
-                        gamePlayer->sendWinner("Bye");
+                        gamePlayer->sendWinner("Bye\n");
                         gamePlayer->closeConneton();
                         // then set the first spectator as the player
                         // assign the member to here
