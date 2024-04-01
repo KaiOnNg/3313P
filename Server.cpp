@@ -20,8 +20,10 @@ int count = 0;
 
 // semaphore arranging socket write
 Semaphore socketWrite("socketWrite", 1, true);
-
 // std::atomic<int> count(0);
+
+std::vector <int> roomList = {3,2,1};
+
 
 struct TableData
 {
@@ -475,7 +477,6 @@ public:
                             break;
                         }
                     }
-
                     // if player exploded
                     if (gamePlayer->getExplode())
                     {
@@ -553,10 +554,8 @@ public:
                             gamePlayer = nullptr;
                         } 
                     }
-
                     if (gamePlayer == nullptr && Spectatorlist.size() == 0)
                     {
-
                         // terminate the thread if there is no player and the list is empty
                         continueFlag = false;
                     }
@@ -565,13 +564,15 @@ public:
                         continueFlag == true;
                     }
                 }
-
                 std::this_thread::sleep_for(std::chrono::seconds(2));
                 std::cout << "Game room ending...\n";
+
+                roomList.push_back(roomId);
+                count--;
+                
             }
             catch (std::string &e)
             {
-
                 // system output
                 std::cout << "cannot create server" << std::endl;
             }
@@ -589,12 +590,9 @@ int main()
 {
     SocketServer server(12345); // Listen on port 12345
     std::vector<GameRoom *> gameRooms;
-
     std::cout << "Server started. Listening for connections...\n";
-
     Semaphore write = Semaphore("write", 1, true);
     Semaphore read = Semaphore("read", 0, true);
-
     Shared<MyShared> sharedMemory("sharedMemory", true);
     // Accept connections and create game rooms
     try
@@ -609,18 +607,20 @@ int main()
             {
                 // Start a new game room for each connection
                 std::cout << "Starting a game room...\n";
-                gameRooms.push_back(new GameRoom(count, new Player(newConnection, count), Semaphore("write"), Semaphore("read")));
+
+                int roomID = roomList[roomList.size()-1];   
+
+                gameRooms.push_back(new GameRoom(roomID, new Player(newConnection, roomID), Semaphore("write"), Semaphore("read")));
                 count++;
+
+                roomList.pop_back();
             }
             else
             {
-
                 // send message to client tell him the room is room full
                 // which room you want to join
-
                 // wait response
                 //  if (out of range ---- retry) inside the range put to the spectator list
-
                 // send current situation of current rooom
                 std::cout << "Join as a spectator\n";
                 Spectator *newSpec = new Spectator(newConnection);
@@ -655,7 +655,9 @@ int main()
                 {
                     break;
                 }
+            
             }
+
         }
     }
     catch (const std::string &e)
