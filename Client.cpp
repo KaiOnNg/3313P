@@ -77,7 +77,7 @@ int main()
             std::cout << trimMsg << std::endl;
 
             // React to specific server prompts
-            if (trimMsg == "Do you want to hit or stand?" || trimMsg == "Do you want to continue playing? (yes or no)" || trimMsg == "which rooom do you want to join in 1 or 2 or 3")
+            if (trimMsg == "Do you want to hit or stand?" || trimMsg == "Do you want to continue playing? (yes or no)" || trimMsg == "which rooom do you want to join in 1 or 2 or 3" || trimMsg == "Invalid input, please try again.")
             {
                 std::cout << "> ";
                 std::getline(std::cin, input); // Get input from the user
