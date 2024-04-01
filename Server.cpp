@@ -105,6 +105,11 @@ public:
         this->explode = explode;
     }
 
+    void setHitFlag(bool hit)
+    {
+        this->hitFlag = hit;
+    }
+
     void askHit()
     {
         socketWrite.Wait();
@@ -152,14 +157,8 @@ public:
         playerHand.clear();
         dealerHand.clear();
         write.Wait();
-        std::cout << "@@" << std::endl;
-        std::cout << sharedmemory->table[roomId].playerHand << std::endl;
-        std::cout << sharedmemory->table[0].playerHandSize << std::endl;
-        std::cout << playerHand[0] << std::endl;
         std::copy_n(sharedmemory->table[roomId].playerHand, sharedmemory->table[roomId].playerHandSize, std::back_inserter(playerHand));
-        std::cout << "@@" << std::endl;
         std::copy_n(sharedmemory->table[roomId].dealerHand, sharedmemory->table[roomId].dealerHandSize, std::back_inserter(dealerHand));
-        std::cout << "@@" << std::endl;
         // have not define the read and wirte semaphore
         write.Signal();
         // set up the string for printing
@@ -169,15 +168,12 @@ public:
         {
             handStr += std::to_string(dealerHand[i]) + " ";
         }
-
         handStr += "\nPlayer's hand:\n";
         for (int i = 0; i < playerHand.size(); ++i)
         {
             handStr += std::to_string(playerHand[i]) + " ";
         }
-
         handStr += "\nYour total is: " + std::to_string(calculateHandTotal()) + "\n";
-
         socketWrite.Wait();
         ByteArray data(handStr);
         socket.Write(data);
@@ -260,19 +256,19 @@ public:
         this->read = read;
     }
 
-    void send()
+    void send(int *dealer, int *player, int dealerHandSize, int playerHandSize)
     {
-
-
-        std::string sendData = "Player: \n";
-        for (int card : playerHand)
+        std::copy_n(dealer, dealerHandSize, dealerHand.begin());
+        std::copy_n(player, playerHandSize, playerHand.begin());
+        std::string sendData = "Dealer's Hand:\n";
+        for (int i = 0; i < dealerHandSize; i++)
         {
-            sendData += std::to_string(card) + " " + "\n";
+            sendData += std::to_string(dealerHand[i]) + " ";
         }
-        sendData += "Dealer:\n";
-        for (int card : dealerHand)
+        sendData += "\nPlayer's Hand: \n";
+        for (int i = 0; i < playerHandSize; i++)
         {
-            sendData += std::to_string(card) + " " + "\n";
+            sendData += std::to_string(playerHand[i]) + " ";
         }
 
         socketWrite.Wait();
@@ -289,7 +285,7 @@ public:
     {
         // since when the room achieve 3, then it will assign the new comeer be the spectator
         socketWrite.Wait();
-        ByteArray data("which rooom do you want to join in 1 or 2 or 3\n");
+        ByteArray data("which rooom do you want to join in 1 or 2 or 3");
         socket.Write(data);
     }
 
@@ -386,6 +382,7 @@ public:
 
                     write.Wait();
                     this->initializeDeck();
+                    gamePlayer->setExplode(false);
                     for (int i = 0; i < 10; i++)
                     {
                         shared->table[roomId].dealerHand[i] = 0;
@@ -395,28 +392,24 @@ public:
                     shared->table[roomId].dealerHandSize = 0;
                     shared->table[roomId].playerHandSize = 0;
 
-                    write.Signal();
-
-                    write.Wait();
                     for (int i = 0; i < 2; ++i)
                     {
                         dealCard(deck, shared->table[roomId].dealerHand, shared->table[roomId].dealerHandSize);
                         dealCard(deck, shared->table[roomId].playerHand, shared->table[roomId].playerHandSize);
                     }
-                    std::cout << shared->table[0].dealerHandSize << std::endl;
+
 
                     gameDealer->deal(shared->table[roomId].dealerHand);
-
-                    write.Signal();
 
                     if (Spectatorlist.size() != 0)
                     {
                         for (auto *spectator : Spectatorlist)
                         {
-                            spectator->send();
+                            spectator->send(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
                         }
                     }
-                    std::cout << shared->table[0].dealerHandSize << std::endl;
+                    write.Signal();
+
 
                     gamePlayer->readHand(shared);
 
@@ -451,10 +444,12 @@ public:
 
                         if (Spectatorlist.size() != 0)
                         {
+                            write.Wait();
                             for (auto *spectator : Spectatorlist)
                             {
-                                spectator->send();
+                                spectator->send(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
                             }
+                            write.Signal();
                         }
                     }
 
@@ -477,10 +472,12 @@ public:
                         // let spector get information
                         if (Spectatorlist.size() != 0)
                         {
+                            write.Wait();
                             for (auto *spectator : Spectatorlist)
                             {
-                                spectator->send();
+                                spectator->send(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
                             }
+                            write.Signal();
                         }
                         // since the player has finished his round and act as a spectator
                         gamePlayer->readHand(shared);
@@ -608,11 +605,12 @@ int main()
         {
             Socket newConnection = server.Accept();
 
-            std::cout << "Accepted new connection. Starting a game room...\n";
+            std::cout << "Accepted new connection.\n";
 
             if (count < 3)
             {
                 // Start a new game room for each connection
+                std::cout << "Starting a game room...\n";
                 gameRooms.push_back(new GameRoom(count, new Player(newConnection, count, Semaphore("write"), Semaphore("read")), Semaphore("write"), Semaphore("read")));
                 count++;
             }
@@ -626,6 +624,7 @@ int main()
                 //  if (out of range ---- retry) inside the range put to the spectator list
 
                 // send current situation of current rooom
+                std::cout << "Join as a spectator\n";
                 Spectator *newSpec = new Spectator(newConnection, Semaphore("read"));
                 newSpec->askRoom();
                 ByteArray response;
