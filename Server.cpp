@@ -258,6 +258,7 @@ public:
 
     void send(int *dealer, int *player, int dealerHandSize, int playerHandSize)
     {
+        std::cout << "@@" << std::endl;
         std::copy_n(dealer, dealerHandSize, dealerHand.begin());
         std::copy_n(player, playerHandSize, playerHand.begin());
         std::string sendData = "Dealer's Hand:\n";
@@ -398,7 +399,6 @@ public:
                         dealCard(deck, shared->table[roomId].playerHand, shared->table[roomId].playerHandSize);
                     }
 
-
                     gameDealer->deal(shared->table[roomId].dealerHand);
 
                     if (Spectatorlist.size() != 0)
@@ -410,7 +410,6 @@ public:
                     }
                     write.Signal();
 
-
                     gamePlayer->readHand(shared);
 
                     // player hit the card
@@ -420,67 +419,70 @@ public:
                         std::cout << "test" << std::endl;
                         gamePlayer->askHit();
 
-                        if (gamePlayer->getHitFlag())
+                        if (gamePlayer->getHitFlag() == true)
                         {
                             std::cout << "hit" << std::endl;
                             write.Wait();
                             // shared->table[0].playerHand[shared->table[0].playerHandSize] = 3; // Add a card (e.g., '3')
                             // shared->table[0].playerHandSize++;                                // Increment the count
                             dealCard(deck, shared->table[roomId].playerHand, shared->table[roomId].playerHandSize);
-                            std::cout << "New playerhand size: " << shared->table[roomId].playerHandSize << std::endl;
+                            if (Spectatorlist.size() != 0)
+                            {
+                                std::cout << "??" << std::endl;
+                                for (auto *spectator : Spectatorlist)
+                                {
+                                    std::cout << "1" << std::endl;
+                                    std::cout << shared->table[roomId].dealerHandSize << std::endl;
+                                    spectator->send(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
+                                }
+                            }
                             write.Signal();
+
                             gamePlayer->readHand(shared);
+
+                            if (gamePlayer->calculateHandTotal() > 21)
+                            {
+                                gamePlayer->setExplode(true);
+                                break;
+                            };
                         }
                         else if (gamePlayer->getHitFlag() == false)
                         {
                             break;
                         };
-
-                        if (gamePlayer->calculateHandTotal() > 21)
-                        {
-                            gamePlayer->setExplode(true);
-                            break;
-                        };
-
-                        if (Spectatorlist.size() != 0)
-                        {
-                            write.Wait();
-                            for (auto *spectator : Spectatorlist)
-                            {
-                                spectator->send(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
-                            }
-                            write.Signal();
-                        }
                     }
 
                     // dealer begin hit the card
-                    std::cout << "here" << std::endl;
-
-                    while ((!gamePlayer->getExplode() && gameDealer->calculateHandTotal() < 17))
+                    while (true)
                     {
-                        // if dealer satisfy the condition then add card to shared memory
-                        // shared->dealerHand1.push_back(deck[rand() % 4][rand() % 13]);
-                        Shared<MyShared> shared("sharedMemory");
-                        write.Wait();
-                        // shared->table[0].dealerHand[shared->table[0].dealerHandSize] = 3; // Add a card (e.g., '3')
-                        // shared->table[0].dealerHandSize++;                                // Increment the count
-                        dealCard(deck, shared->table[roomId].dealerHand, shared->table[roomId].dealerHandSize);
-                        std::cout << "New dealerhand size: " << shared->table[roomId].dealerHandSize << std::endl;
-                        gameDealer->deal(shared->table[roomId].dealerHand);
-                        write.Signal();
-
-                        // let spector get information
-                        if (Spectatorlist.size() != 0)
+                        if ((!gamePlayer->getExplode() && gameDealer->calculateHandTotal() < 17))
                         {
+                            // if dealer satisfy the condition then add card to shared memory
+                            // shared->dealerHand1.push_back(deck[rand() % 4][rand() % 13]);
+                            Shared<MyShared> shared("sharedMemory");
                             write.Wait();
-                            for (auto *spectator : Spectatorlist)
-                            {
-                                spectator->send(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
-                            }
+                            // shared->table[0].dealerHand[shared->table[0].dealerHandSize] = 3; // Add a card (e.g., '3')
+                            // shared->table[0].dealerHandSize++;                                // Increment the count
+                            dealCard(deck, shared->table[roomId].dealerHand, shared->table[roomId].dealerHandSize);
+                            std::cout << "New dealerhand size: " << shared->table[roomId].dealerHandSize << std::endl;
+                            gameDealer->deal(shared->table[roomId].dealerHand);
                             write.Signal();
+
+                            // let spector get information
+                            if (Spectatorlist.size() != 0)
+                            {
+                                write.Wait();
+                                for (auto *spectator : Spectatorlist)
+                                {
+                                    spectator->send(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
+                                }
+                                write.Signal();
+                            }
+                            // since the player has finished his round and act as a spectator
+                            gamePlayer->readHand(shared);
+                        } else {
+                            break;
                         }
-                        // since the player has finished his round and act as a spectator
-                        gamePlayer->readHand(shared);
                     }
 
                     // if player exploded
@@ -511,7 +513,7 @@ public:
                     }
 
                     // compare score
-                    else if (gameDealer->calculateHandTotal() > gamePlayer->calculateHandTotal())
+                    else if (gameDealer->calculateHandTotal() >= gamePlayer->calculateHandTotal())
                     {
                         // dealer wins, notify player and all spectators
                         gamePlayer->sendWinner("Dealer wins!!\n");
