@@ -33,10 +33,16 @@ def main():
             print(received_msg)
 
             # React to specific server prompts
-            if received_msg in ["Do you want to hit or stand?",
+            if received_msg in ["Do you want to hit or stand?", 
                                 "Do you want to continue playing? (yes or no)",
                                 "which rooom do you want to join in 1 or 2 or 3",
                                 "Invalid input, please try again."]:
+                user_input = input("> ")  # Get input from the user
+
+                # Send input to the server
+                sockfd.sendall(user_input.encode())
+            else:
+                print("Do you want to hit or stand?")
                 user_input = input("> ")  # Get input from the user
 
                 # Send input to the server
