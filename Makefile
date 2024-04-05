@@ -1,4 +1,4 @@
-all: Client Server
+all: Client Server libsemaphorewrapper.so
 
 Client : Client.o socket.o Blockable.o
 	g++ -o Client Client.o socket.o Blockable.o -pthread -l rt
@@ -23,3 +23,6 @@ socket.o : socket.cpp socket.h
 
 socketserver.o : socketserver.cpp socket.h socketserver.h
 	g++ -c socketserver.cpp -std=c++11
+
+libsemaphorewrapper.so: SemaphoreWrapper.cpp Semaphore.h
+	g++ -shared -std=c++11 -pthread -fPIC -o libsemaphorewrapper.so SemaphoreWrapper.cpp
