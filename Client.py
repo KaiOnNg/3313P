@@ -1,30 +1,10 @@
 #Client.py
 import socket
 import sys
-from cffi import FFI
-
-ffi = FFI()
-
-ffi.cdef(
-        """
-    typedef struct Semaphore Semaphore;
-
-    Semaphore* Semaphore_new(const char* name, int initialState, bool createAsOwner);
-    void Semaphore_signal(Semaphore* sem);
-    void Semaphore_wait(Semaphore* sem);
-    void Semaphore_delete(Semaphore* sem);
-    """
-)
-
-lib = ffi.dlopen("./libsemaphorewrapper.so")
 
 def main():
     # Create a socket object
     sockfd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    sem = lib.Semaphore_new(b"socketWrite", 1, False)
-    if sem == ffi.NULL:
-        raise RuntimeError("Failed to create semaphore")
 
     # Server information
     server_address = ('localhost', 12345)  # Server IP and port
@@ -41,7 +21,8 @@ def main():
         try:
             # Receive data from the server
             data = sockfd.recv(1024)
-            lib.Semaphore_signal(sem)
+
+            sockfd.sendall("ack".encode())
 
             if not data:
                 print("No response from server, or connection closed.")
@@ -73,7 +54,6 @@ def main():
             break
 
     # Close the socket
-    lib.Semaphore_delete(sem)
     sockfd.close()
     sys.exit(0)
 

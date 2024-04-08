@@ -18,12 +18,9 @@ using namespace Sync;
 // set a global value
 int count = 0;
 
-// semaphore arranging socket write
-Semaphore socketWrite("socketWrite", 1, true);
 // std::atomic<int> count(0);
 
-std::vector <int> roomList = {3,2,1};
-
+std::vector<int> roomList = {3, 2, 1};
 
 struct TableData
 {
@@ -77,10 +74,11 @@ private:
     bool explode = false;
     bool isContinue = true;
     int roomId;
+    Semaphore socketWrite;
 
     // Additional functionality for dealer actions
 public:
-    Player(Socket socket, int roomId) : socket(socket), roomId(roomId)
+    Player(Socket socket, int roomId) : socket(socket), roomId(roomId), socketWrite("socketWrite")
     {
         this->roomId = roomId;
         this->socket = socket;
@@ -114,12 +112,19 @@ public:
         ByteArray data("Do you want to hit or stand?");
         socket.Write(data);
 
+        ByteArray receivedData;
+        socket.Read(receivedData);
+        std::string ack(receivedData.v.begin(), receivedData.v.end());
+        if (ack == "ack")
+        {
+            socketWrite.Signal();
+        }
+
         // Wait for response
         while (true)
         {
             // Wait for response
 
-            ByteArray receivedData;
             socket.Read(receivedData);
             std::string received(receivedData.v.begin(), receivedData.v.end());
 
@@ -138,6 +143,12 @@ public:
                 socketWrite.Wait();
                 ByteArray error("Invalid input, please try again.\n");
                 socket.Write(error);
+                socket.Read(receivedData);
+                std::string ack(receivedData.v.begin(), receivedData.v.end());
+                if (ack == "ack")
+                {
+                    socketWrite.Signal();
+                }
             }
         }
     }
@@ -170,11 +181,18 @@ public:
         }
 
         handStr += "\nYour total is: " + std::to_string(calculateHandTotal()) + "\n";
-        
+
         socketWrite.Wait();
         ByteArray data(handStr);
         socket.Write(data);
 
+        ByteArray receivedData;
+        socket.Read(receivedData);
+        std::string ack(receivedData.v.begin(), receivedData.v.end());
+        if (ack == "ack")
+        {
+            socketWrite.Signal();
+        }
     }
 
     void askContinue()
@@ -183,8 +201,15 @@ public:
         ByteArray data("Do you want to continue playing? (yes or no)");
         // message type = 1 hit
         socket.Write(data);
+        ByteArray receivedData;
+        socket.Read(receivedData);
+        std::string ack(receivedData.v.begin(), receivedData.v.end());
+        if (ack == "ack")
+        {
+            socketWrite.Signal();
+        }
 
-        int receivedData = socket.Read(data);
+        socket.Read(data);
         std::string received(data.v.begin(), data.v.end());
 
         if (received == "yes")
@@ -199,12 +224,20 @@ public:
 
     void sendWinner(std::string string)
     {
-        for (int i = 0; i < 10; i++){
+        for (int i = 0; i < 10; i++)
+        {
             playerHand[i] = 0;
             dealerHand[i] = 0;
         }
         socketWrite.Wait();
         socket.Write(string);
+        ByteArray receivedData;
+        socket.Read(receivedData);
+        std::string ack(receivedData.v.begin(), receivedData.v.end());
+        if (ack == "ack")
+        {
+            socketWrite.Signal();
+        }
     }
 
     void closeConneton()
@@ -232,9 +265,10 @@ private:
     std::vector<int> dealerHand = std::vector<int>(10);
     Socket socket;
     int roomId;
+    Semaphore socketWrite;
     // Additional functionality for dealer actions
 public:
-    Spectator(Socket socket) : socket(socket)
+    Spectator(Socket socket) : socket(socket), socketWrite("socketWrite")
     {
         this->socket = socket;
     }
@@ -269,6 +303,13 @@ public:
         socketWrite.Wait();
         ByteArray data(sendData);
         socket.Write(data);
+        ByteArray receivedData;
+        socket.Read(receivedData);
+        std::string ack(receivedData.v.begin(), receivedData.v.end());
+        if (ack == "ack")
+        {
+            socketWrite.Signal();
+        }
     }
 
     void setRoomId(int roomId)
@@ -282,12 +323,26 @@ public:
         socketWrite.Wait();
         ByteArray data("which rooom do you want to join in 1 or 2 or 3");
         socket.Write(data);
+        ByteArray receivedData;
+        socket.Read(receivedData);
+        std::string ack(receivedData.v.begin(), receivedData.v.end());
+        if (ack == "ack")
+        {
+            socketWrite.Signal();
+        }
     }
 
     void sendWinner(std::string string)
     {
         socketWrite.Wait();
         socket.Write(string);
+        ByteArray receivedData;
+        socket.Read(receivedData);
+        std::string ack(receivedData.v.begin(), receivedData.v.end());
+        if (ack == "ack")
+        {
+            socketWrite.Signal();
+        }
     }
 };
 
@@ -306,9 +361,10 @@ public:
     // create semaphore for read and write
     Semaphore write;
     Semaphore read;
-    //
+    // semaphore arranging socket write
+    Semaphore socketWrite;
 
-    GameRoom(int roomId, Player *player, Semaphore write, Semaphore read) : Thread(), gamePlayer(player), roomId(roomId), write(write), read(read)
+    GameRoom(int roomId, Player *player, Semaphore write, Semaphore read) : Thread(), gamePlayer(player), roomId(roomId), write(write), read(read), socketWrite("socketWrite", 1, true)
     {
         this->gamePlayer = player;
         initializeDeck();
@@ -548,11 +604,11 @@ public:
                             // Or Spectatorlist[0] // Then set the first spectator as the player // Assign the member to here
                             gamePlayer = new Player(firstSpectator->getSocket(), firstSpectator->getRoomId()); // Reset the first place of vector list by Removing the first element
                             Spectatorlist.erase(Spectatorlist.begin());
-                        } 
+                        }
                         else
                         {
                             gamePlayer = nullptr;
-                        } 
+                        }
                     }
                     if (gamePlayer == nullptr && Spectatorlist.size() == 0)
                     {
@@ -569,7 +625,6 @@ public:
 
                 roomList.push_back(roomId);
                 count--;
-                
             }
             catch (std::string &e)
             {
@@ -608,7 +663,7 @@ int main()
                 // Start a new game room for each connection
                 std::cout << "Starting a game room...\n";
 
-                int roomID = roomList[roomList.size()-1];   
+                int roomID = roomList[roomList.size() - 1];
 
                 gameRooms.push_back(new GameRoom(roomID, new Player(newConnection, roomID), Semaphore("write"), Semaphore("read")));
                 count++;
@@ -655,9 +710,7 @@ int main()
                 {
                     break;
                 }
-            
             }
-
         }
     }
     catch (const std::string &e)
