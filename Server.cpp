@@ -359,12 +359,12 @@ public:
     std::vector<std::vector<int>> deck;
 
     // create semaphore for read and write
-    Semaphore write;
-    Semaphore read;
+    Semaphore *write;
+    Semaphore *read;
     // semaphore arranging socket write
     Semaphore socketWrite;
 
-    GameRoom(int roomId, Player *player, Semaphore write, Semaphore read) : Thread(), gamePlayer(player), roomId(roomId), write(write), read(read), socketWrite("socketWrite", 1, true)
+    GameRoom(int roomId, Player *player, Semaphore *write, Semaphore *read) : Thread(), gamePlayer(player), roomId(roomId), write(write), read(read), socketWrite("socketWrite", 1, true)
     {
         this->gamePlayer = player;
         initializeDeck();
@@ -433,7 +433,7 @@ public:
 
                     this->initializeDeck();
                     gamePlayer->setExplode(false);
-                    write.Wait();
+                    write->Wait();
                     for (int i = 0; i < 10; i++)
                     {
                         shared->table[roomId].dealerHand[i] = 0;
@@ -446,8 +446,8 @@ public:
                         dealCard(deck, shared->table[roomId].dealerHand, shared->table[roomId].dealerHandSize);
                         dealCard(deck, shared->table[roomId].playerHand, shared->table[roomId].playerHandSize);
                     }
-                    read.Signal();
-                    read.Wait();
+                    read->Signal();
+                    read->Wait();
                     gameDealer->deal(shared->table[roomId].dealerHand);
 
                     if (Spectatorlist.size() != 0)
@@ -459,7 +459,7 @@ public:
                     }
                     gamePlayer->readHand(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
 
-                    write.Signal();
+                    write->Signal();
                     // player hit the card
                     while (true)
                     {
@@ -468,11 +468,11 @@ public:
 
                         if (gamePlayer->getHitFlag() == true)
                         {
-                            write.Wait();
+                            write->Wait();
                             dealCard(deck, shared->table[roomId].playerHand, shared->table[roomId].playerHandSize);
-                            read.Signal();
+                            read->Signal();
                             
-                            read.Wait();
+                            read->Wait();
                             if (Spectatorlist.size() != 0)
                             {
                                 for (auto *spectator : Spectatorlist)
@@ -483,7 +483,7 @@ public:
 
                             gamePlayer->readHand(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
 
-                            write.Signal();
+                            write->Signal();
 
                             if (gamePlayer->calculateHandTotal() > 21)
                             {
@@ -505,13 +505,13 @@ public:
                             // if dealer satisfy the condition then add card to shared memory
                             // shared->dealerHand1.push_back(deck[rand() % 4][rand() % 13]);
                             Shared<MyShared> shared("sharedMemory");
-                            write.Wait();
+                            write->Wait();
                             // shared->table[0].dealerHand[shared->table[0].dealerHandSize] = 3; // Add a card (e.g., '3')
                             // shared->table[0].dealerHandSize++;                                // Increment the count
                             dealCard(deck, shared->table[roomId].dealerHand, shared->table[roomId].dealerHandSize);
-                            read.Signal();
+                            read->Signal();
 
-                            read.Wait();
+                            read->Wait();
                             gameDealer->deal(shared->table[roomId].dealerHand);
 
                             // let spector get information
@@ -524,7 +524,7 @@ public:
                             }
                             // since the player has finished his round and act as a spectator
                             gamePlayer->readHand(shared->table[roomId].dealerHand, shared->table[roomId].playerHand, shared->table[roomId].dealerHandSize, shared->table[roomId].playerHandSize);
-                            write.Signal();
+                            write->Signal();
                         }
                         else
                         {
@@ -663,7 +663,7 @@ int main()
 
                 int roomID = roomList[roomList.size() - 1];
 
-                gameRooms.push_back(new GameRoom(roomID, new Player(newConnection, roomID), Semaphore("write"), Semaphore("read")));
+                gameRooms.push_back(new GameRoom(roomID, new Player(newConnection, roomID), &write,&read ));
                 count++;
 
                 roomList.pop_back();
