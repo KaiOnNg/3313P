@@ -466,14 +466,12 @@ public:
                         Shared<MyShared> shared("sharedMemory");
                         gamePlayer->askHit();
 
-                        std::cout << "??" << std::endl;
                         if (gamePlayer->getHitFlag() == true)
                         {
                             write.Wait();
-                            std::cout << "Before: " << shared->table[roomId].playerHand[2] << std::endl;
                             dealCard(deck, shared->table[roomId].playerHand, shared->table[roomId].playerHandSize);
-                            std::cout << "After" << shared->table[roomId].playerHand[2] << std::endl;
                             read.Signal();
+                            
                             read.Wait();
                             if (Spectatorlist.size() != 0)
                             {
